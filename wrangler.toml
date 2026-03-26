@@ -1,0 +1,6 @@
+name = "meu-app-seguidores"
+pages_build_output_dir = "dist"
+
+[vars]
+# Variáveis de ambiente públicas (VITE_...)
+VITE_APP_NAME = "Seguidores Express"

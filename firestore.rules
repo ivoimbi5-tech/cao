@@ -1,0 +1,156 @@
+rules_version = '2';
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+    
+    // ===============================================================
+    // Assumed Data Model
+    // ===============================================================
+    //
+    // Collection: users
+    // Document ID: userId (Firebase Auth UID)
+    // Fields:
+    //   - uid: string (required)
+    //   - displayName: string (optional)
+    //   - email: string (required, format: email)
+    //   - phone: string (optional)
+    //   - balance: number (required, >= 0)
+    //   - role: string (required, enum: ["user", "admin"])
+    //   - createdAt: timestamp (optional)
+    //
+    // Collection: services
+    // Document ID: serviceId
+    // Fields:
+    //   - platform: string (required, enum: ["Instagram", "TikTok", "Facebook", "Twitter"])
+    //   - name: string (required)
+    //   - pricePerUnit: number (required, > 0)
+    //   - minQuantity: number (optional)
+    //   - maxQuantity: number (optional)
+    //
+    // Collection: orders
+    // Document ID: orderId
+    // Fields:
+    //   - userId: string (required, matches owner)
+    //   - serviceId: string (required)
+    //   - quantity: number (required, > 0)
+    //   - totalPrice: number (required, > 0)
+    //   - status: string (required, enum: ["pending", "processing", "completed", "cancelled"])
+    //   - createdAt: timestamp (required)
+    //
+    // Collection: transactions
+    // Document ID: transactionId
+    // Fields:
+    //   - userId: string (required, matches owner)
+    //   - amount: number (required, > 0)
+    //   - reference: string (required)
+    //   - status: string (required, enum: ["pending", "approved", "rejected"])
+    //   - createdAt: timestamp (required)
+    //
+    // ===============================================================
+
+    // ===============================================================
+    // Helper Functions
+    // ===============================================================
+    
+    function isAuthenticated() {
+      return request.auth != null;
+    }
+    
+    function isOwner(userId) {
+      return isAuthenticated() && request.auth.uid == userId;
+    }
+    
+    function isAdmin() {
+      return isAuthenticated() && 
+        (get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'admin' ||
+         (request.auth.token.email == "projectkoringa@gmail.com" && request.auth.token.email_verified == true));
+    }
+
+    function isValidEmail(email) {
+      return email is string && email.matches("^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\\.[a-zA-Z]{2,}$");
+    }
+
+    // ===============================================================
+    // Collection Rules
+    // ===============================================================
+
+    // Users Collection
+    match /users/{userId} {
+      function isValidUser(data) {
+        return data.keys().hasAll(['uid', 'email', 'balance', 'role']) &&
+               data.uid == userId &&
+               isValidEmail(data.email) &&
+               data.balance is number && data.balance >= 0 &&
+               data.role in ['user', 'admin'];
+      }
+
+      // Users can read their own profile. Admins can read all.
+      allow read: if isOwner(userId) || isAdmin();
+      
+      // Users can create their own profile with 'user' role only.
+      allow create: if isOwner(userId) && isValidUser(request.resource.data) && request.resource.data.role == 'user';
+      
+      // Users can update their own profile but NOT their role or balance (unless admin).
+      allow update: if (isOwner(userId) && 
+                       isValidUser(request.resource.data) && 
+                       request.resource.data.role == resource.data.role && 
+                       request.resource.data.balance == resource.data.balance) || 
+                       isAdmin();
+    }
+
+    // Services Collection
+    match /services/{serviceId} {
+      // Anyone can read services. Only admins can write.
+      allow read: if true;
+      allow write: if isAdmin();
+    }
+
+    // Orders Collection
+    match /orders/{orderId} {
+      function isValidOrder(data) {
+        return data.keys().hasAll(['userId', 'serviceId', 'quantity', 'totalPrice', 'status']) &&
+               data.userId == request.auth.uid &&
+               data.quantity is number && data.quantity > 0 &&
+               data.totalPrice is number && data.totalPrice > 0 &&
+               data.status in ['pending', 'processing', 'completed', 'cancelled'];
+      }
+
+      // Users can read their own orders. Admins can read all.
+      allow read: if isAuthenticated() && (resource.data.userId == request.auth.uid || isAdmin());
+      
+      // Users can create orders for themselves.
+      allow create: if isAuthenticated() && isValidOrder(request.resource.data);
+      
+      // Only admins can update order status.
+      allow update: if isAdmin();
+      
+      allow delete: if isAdmin();
+    }
+
+    // Transactions Collection
+    match /transactions/{transactionId} {
+      function isValidTransaction(data) {
+        return data.keys().hasAll(['userId', 'amount', 'reference', 'status']) &&
+               data.userId == request.auth.uid &&
+               data.amount is number && data.amount > 0 &&
+               data.status in ['pending', 'approved', 'rejected'];
+      }
+
+      // Users can read their own transactions. Admins can read all.
+      allow read: if isAuthenticated() && (resource.data.userId == request.auth.uid || isAdmin());
+      
+      // Users can create transactions for themselves (usually 'pending').
+      allow create: if isAuthenticated() && isValidTransaction(request.resource.data);
+      
+      // Only admins can update transaction status.
+      allow update: if isAdmin();
+      
+      allow delete: if isAdmin();
+    }
+    
+    // Default deny
+    match /{path=**} {
+      allow read, write: if false;
+    }
+  }
+}

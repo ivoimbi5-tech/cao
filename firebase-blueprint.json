@@ -1,0 +1,82 @@
+{
+  "entities": {
+    "User": {
+      "title": "User",
+      "description": "User profile and account information",
+      "type": "object",
+      "properties": {
+        "uid": { "type": "string", "description": "Firebase Auth UID" },
+        "displayName": { "type": "string", "description": "User's full name" },
+        "email": { "type": "string", "format": "email", "description": "User's email address" },
+        "phone": { "type": "string", "description": "User's phone number" },
+        "balance": { "type": "number", "description": "Current account balance in Kz" },
+        "role": { "type": "string", "enum": ["user", "admin"], "description": "User role" },
+        "createdAt": { "type": "string", "format": "date-time", "description": "Account creation timestamp" }
+      },
+      "required": ["uid", "email", "balance", "role"]
+    },
+    "Service": {
+      "title": "Service",
+      "description": "Available social media growth services",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "platform": { "type": "string", "enum": ["Instagram", "TikTok", "Facebook", "Twitter"] },
+        "name": { "type": "string" },
+        "description": { "type": "string" },
+        "pricePerUnit": { "type": "number", "description": "Price per single follower/like in Kz" },
+        "minQuantity": { "type": "number" },
+        "maxQuantity": { "type": "number" }
+      },
+      "required": ["platform", "name", "pricePerUnit"]
+    },
+    "Order": {
+      "title": "Order",
+      "description": "A service order placed by a user",
+      "type": "object",
+      "properties": {
+        "userId": { "type": "string" },
+        "serviceId": { "type": "string" },
+        "serviceName": { "type": "string" },
+        "platform": { "type": "string" },
+        "targetUrl": { "type": "string", "description": "Link to the social media profile/post" },
+        "quantity": { "type": "number" },
+        "totalPrice": { "type": "number" },
+        "status": { "type": "string", "enum": ["pending", "processing", "completed", "cancelled"] },
+        "createdAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["userId", "serviceId", "targetUrl", "quantity", "totalPrice", "status"]
+    },
+    "Transaction": {
+      "title": "Transaction",
+      "description": "Balance deposit transaction",
+      "type": "object",
+      "properties": {
+        "userId": { "type": "string" },
+        "amount": { "type": "number" },
+        "reference": { "type": "string", "description": "Payment reference code" },
+        "status": { "type": "string", "enum": ["pending", "approved", "rejected"] },
+        "createdAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["userId", "amount", "reference", "status"]
+    }
+  },
+  "firestore": {
+    "/users/{userId}": {
+      "schema": "User",
+      "description": "User documents"
+    },
+    "/services/{serviceId}": {
+      "schema": "Service",
+      "description": "Available services"
+    },
+    "/orders/{orderId}": {
+      "schema": "Order",
+      "description": "User orders"
+    },
+    "/transactions/{transactionId}": {
+      "schema": "Transaction",
+      "description": "Deposit transactions"
+    }
+  }
+}
