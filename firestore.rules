@@ -46,6 +46,16 @@ service cloud.firestore {
     //   - status: string (required, enum: ["pending", "approved", "rejected"])
     //   - createdAt: timestamp (required)
     //
+    // Collection: notifications
+    // Document ID: notificationId
+    // Fields:
+    //   - userId: string (required, matches owner)
+    //   - title: string (required)
+    //   - message: string (required)
+    //   - type: string (required, enum: ["abandoned_purchase", "order_update", "system"])
+    //   - read: boolean (required)
+    //   - createdAt: timestamp (required)
+    //
     // ===============================================================
 
     // ===============================================================
@@ -61,9 +71,7 @@ service cloud.firestore {
     }
     
     function isAdmin() {
-      return isAuthenticated() && 
-        (get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'admin' ||
-         (request.auth.token.email == "projectkoringa@gmail.com" && request.auth.token.email_verified == true));
+      return false; // Admin logic disabled for now
     }
 
     function isValidEmail(email) {
@@ -81,28 +89,28 @@ service cloud.firestore {
                data.uid == userId &&
                isValidEmail(data.email) &&
                data.balance is number && data.balance >= 0 &&
-               data.role in ['user', 'admin'];
+               data.role in ['user', 'admin'] &&
+               (!('createdAt' in data) || data.createdAt is string);
       }
 
-      // Users can read their own profile. Admins can read all.
-      allow read: if isOwner(userId) || isAdmin();
+      // Users can read their own profile.
+      allow read: if request.auth != null && request.auth.uid == userId;
       
       // Users can create their own profile with 'user' role only.
       allow create: if isOwner(userId) && isValidUser(request.resource.data) && request.resource.data.role == 'user';
       
-      // Users can update their own profile but NOT their role or balance (unless admin).
-      allow update: if (isOwner(userId) && 
+      // Users can update their own profile but NOT their role or balance.
+      allow update: if isOwner(userId) && 
                        isValidUser(request.resource.data) && 
                        request.resource.data.role == resource.data.role && 
-                       request.resource.data.balance == resource.data.balance) || 
-                       isAdmin();
+                       request.resource.data.balance == resource.data.balance;
     }
 
     // Services Collection
     match /services/{serviceId} {
-      // Anyone can read services. Only admins can write.
+      // Anyone can read services.
       allow read: if true;
-      allow write: if isAdmin();
+      allow write: if false; // Only via Admin SDK
     }
 
     // Orders Collection
@@ -115,16 +123,14 @@ service cloud.firestore {
                data.status in ['pending', 'processing', 'completed', 'cancelled'];
       }
 
-      // Users can read their own orders. Admins can read all.
-      allow read: if isAuthenticated() && (resource.data.userId == request.auth.uid || isAdmin());
+      // Users can read their own orders.
+      allow read: if request.auth != null && resource.data.get('userId', '') == request.auth.uid;
       
       // Users can create orders for themselves.
       allow create: if isAuthenticated() && isValidOrder(request.resource.data);
       
-      // Only admins can update order status.
-      allow update: if isAdmin();
-      
-      allow delete: if isAdmin();
+      // Only server/admin can update order status (via Admin SDK).
+      allow update, delete: if false;
     }
 
     // Transactions Collection
@@ -136,16 +142,41 @@ service cloud.firestore {
                data.status in ['pending', 'approved', 'rejected'];
       }
 
-      // Users can read their own transactions. Admins can read all.
-      allow read: if isAuthenticated() && (resource.data.userId == request.auth.uid || isAdmin());
+      // Users can read their own transactions.
+      allow read: if request.auth != null && resource.data.get('userId', '') == request.auth.uid;
       
       // Users can create transactions for themselves (usually 'pending').
       allow create: if isAuthenticated() && isValidTransaction(request.resource.data);
       
-      // Only admins can update transaction status.
-      allow update: if isAdmin();
+      // Only server/admin can update transaction status.
+      allow update, delete: if false;
+    }
+
+    // Notifications Collection
+    match /notifications/{notificationId} {
+      function isValidNotification(data) {
+        return data.keys().hasAll(['userId', 'title', 'message', 'type', 'read', 'createdAt']) &&
+               data.userId is string &&
+               data.title is string && data.title.size() > 0 && data.title.size() < 200 &&
+               data.message is string && data.message.size() > 0 && data.message.size() < 1000 &&
+               data.type in ["abandoned_purchase", "order_update", "system"] &&
+               data.read is bool &&
+               (data.createdAt is timestamp || data.createdAt is string);
+      }
+
+      // Users can read their own notifications.
+      allow read: if request.auth != null && resource.data.get('userId', '') == request.auth.uid;
       
-      allow delete: if isAdmin();
+      // Only server/admin can create notifications (usually). 
+      // But if the app creates them (e.g. abandoned purchase), we allow it if userId matches.
+      allow create: if isAuthenticated() && isValidNotification(request.resource.data) && request.resource.data.userId == request.auth.uid;
+      
+      // Users can mark their own notifications as read.
+      allow update: if isAuthenticated() && 
+                    resource.data.userId == request.auth.uid &&
+                    request.resource.data.diff(resource.data).affectedKeys().hasOnly(['read']);
+      
+      allow delete: if isAuthenticated() && resource.data.userId == request.auth.uid;
     }
     
     // Default deny

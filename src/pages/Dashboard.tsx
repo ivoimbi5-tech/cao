@@ -8,8 +8,8 @@ import {
   Instagram,
   Music2
 } from 'lucide-react';
-import { collection, query, where, getDocs, limit, orderBy, updateDoc, doc } from 'firebase/firestore';
-import { db, handleFirestoreError, OperationType } from '../firebase';
+import { collection, query, where, getDocs, limit, orderBy, updateDoc, doc, onSnapshot } from 'firebase/firestore';
+import { db, auth, handleFirestoreError, OperationType } from '../firebase';
 import { useAuth } from '../context/AuthContext';
 import { Order, Notification } from '../types';
 import { cn } from '../lib/utils';
@@ -32,7 +32,7 @@ const StatCard = ({ label, value, icon: Icon, color }: any) => (
 );
 
 const Dashboard = () => {
-  const { profile } = useAuth();
+  const { profile, isAuthReady } = useAuth();
   const [recentOrders, setRecentOrders] = useState<Order[]>([]);
   const [notifications, setNotifications] = useState<Notification[]>([]);
   const [stats, setStats] = useState({
@@ -45,14 +45,32 @@ const Dashboard = () => {
     try {
       const notifRef = doc(db, 'notifications', id);
       await updateDoc(notifRef, { read: true });
-      setNotifications(prev => prev.map(n => n.id === id ? { ...n, read: true } : n));
     } catch (err) {
-      console.error("Error marking notification as read:", err);
+      handleFirestoreError(err, OperationType.UPDATE, `notifications/${id}`);
     }
   };
 
   useEffect(() => {
-    if (!profile?.uid) return;
+    if (!isAuthReady || !profile?.uid) return;
+
+    // Real-time notifications
+    const notifRef = collection(db, 'notifications');
+    const nq = query(
+      notifRef,
+      where('userId', '==', auth.currentUser?.uid),
+      where('read', '==', false),
+      orderBy('createdAt', 'desc'),
+      limit(3)
+    );
+
+    const unsubNotifs = onSnapshot(nq, (snapshot) => {
+      if (!isAuthReady) return;
+      const notifs = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Notification));
+      setNotifications(notifs);
+    }, (error) => {
+      if (!auth.currentUser) return;
+      handleFirestoreError(error, OperationType.LIST, 'notifications');
+    });
 
     const fetchData = async () => {
       try {
@@ -60,7 +78,7 @@ const Dashboard = () => {
         const ordersRef = collection(db, 'orders');
         const q = query(
           ordersRef, 
-          where('userId', '==', profile.uid),
+          where('userId', '==', auth.currentUser?.uid),
           orderBy('createdAt', 'desc'),
           limit(5)
         );
@@ -69,45 +87,26 @@ const Dashboard = () => {
         try {
           querySnapshot = await getDocs(q);
         } catch (error) {
+          if (!auth.currentUser) return;
           handleFirestoreError(error, OperationType.LIST, 'orders');
+          return;
         }
 
-        const orders = querySnapshot!.docs.map(doc => ({ id: doc.id, ...doc.data() } as Order));
+        const orders = querySnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Order));
         setRecentOrders(orders);
 
-        // Fetch Notifications
-        const notifRef = collection(db, 'notifications');
-        const nq = query(
-          notifRef,
-          where('userId', '==', profile.uid),
-          where('read', '==', false),
-          orderBy('createdAt', 'desc'),
-          limit(3)
-        );
-
-        let nSnapshot;
-        try {
-          nSnapshot = await getDocs(nq);
-        } catch (error) {
-          // Handle error silently or log it
-          console.error("Error fetching notifications:", error);
-        }
-
-        if (nSnapshot) {
-          const notifs = nSnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Notification));
-          setNotifications(notifs);
-        }
-
         // Simple count for stats
-        const allOrdersQ = query(ordersRef, where('userId', '==', profile.uid));
+        const allOrdersQ = query(ordersRef, where('userId', '==', auth.currentUser?.uid));
         let allSnapshot;
         try {
           allSnapshot = await getDocs(allOrdersQ);
         } catch (error) {
+          if (!auth.currentUser) return;
           handleFirestoreError(error, OperationType.LIST, 'orders');
+          return;
         }
 
-        const all = allSnapshot!.docs.map(d => d.data() as Order);
+        const all = allSnapshot.docs.map(d => d.data() as Order);
         
         setStats({
           total: all.length,
@@ -120,7 +119,11 @@ const Dashboard = () => {
     };
 
     fetchData();
-  }, [profile?.uid]);
+
+    return () => {
+      unsubNotifs();
+    };
+  }, [profile?.uid, isAuthReady]);
 
   return (
     <div className="space-y-10">

@@ -10,7 +10,7 @@ import {
   MoreVertical
 } from 'lucide-react';
 import { collection, query, where, getDocs, orderBy } from 'firebase/firestore';
-import { db, handleFirestoreError, OperationType } from '../firebase';
+import { db, auth, handleFirestoreError, OperationType } from '../firebase';
 import { useAuth } from '../context/AuthContext';
 import { Order } from '../types';
 import { cn } from '../lib/utils';
@@ -28,7 +28,7 @@ const OrderHistory = () => {
         const ordersRef = collection(db, 'orders');
         const q = query(
           ordersRef, 
-          where('userId', '==', profile.uid),
+          where('userId', '==', auth.currentUser?.uid),
           orderBy('createdAt', 'desc')
         );
         
@@ -36,10 +36,12 @@ const OrderHistory = () => {
         try {
           querySnapshot = await getDocs(q);
         } catch (error) {
+          if (!auth.currentUser) return;
           handleFirestoreError(error, OperationType.LIST, 'orders');
+          return;
         }
 
-        const ordersData = querySnapshot!.docs.map(doc => ({ id: doc.id, ...doc.data() } as Order));
+        const ordersData = querySnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Order));
         setOrders(ordersData);
       } catch (err) {
         console.error("Error fetching order history:", err);

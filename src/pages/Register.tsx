@@ -34,6 +34,7 @@ const Register = () => {
     try {
       const userCredential = await createUserWithEmailAndPassword(auth, email, password);
       localStorage.setItem('pending_phone', phone);
+      localStorage.setItem('pending_name', name);
       await updateProfile(userCredential.user, { displayName: name });
       navigate('/dashboard');
     } catch (err: any) {

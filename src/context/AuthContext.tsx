@@ -1,7 +1,7 @@
 import React, { createContext, useContext, useEffect, useState } from 'react';
 import { onAuthStateChanged, User } from 'firebase/auth';
 import { doc, onSnapshot, setDoc, getDoc } from 'firebase/firestore';
-import { auth, db } from '../firebase';
+import { auth, db, handleFirestoreError, OperationType } from '../firebase';
 import { UserProfile } from '../types';
 
 interface AuthContextType {
@@ -25,47 +25,64 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const [isAuthReady, setIsAuthReady] = useState(false);
 
   useEffect(() => {
+    let unsubProfile: (() => void) | null = null;
+
     const unsubscribe = onAuthStateChanged(auth, async (firebaseUser) => {
       setUser(firebaseUser);
       setIsAuthReady(true);
+
+      // Cleanup previous profile listener if it exists
+      if (unsubProfile) {
+        unsubProfile();
+        unsubProfile = null;
+      }
 
       if (firebaseUser) {
         const userDocRef = doc(db, 'users', firebaseUser.uid);
         
         // Listen to profile changes
-        const unsubProfile = onSnapshot(userDocRef, (docSnap) => {
+        unsubProfile = onSnapshot(userDocRef, (docSnap) => {
           if (docSnap.exists()) {
             setProfile(docSnap.data() as UserProfile);
           } else {
             // Create profile if it doesn't exist
             const pendingPhone = localStorage.getItem('pending_phone');
+            const pendingName = localStorage.getItem('pending_name');
             const newProfile: UserProfile = {
               uid: firebaseUser.uid,
-              displayName: firebaseUser.displayName || 'Usuário',
+              displayName: pendingName || firebaseUser.displayName || 'Usuário',
               email: firebaseUser.email || '',
               balance: 0,
               phone: pendingPhone || undefined,
               role: 'user',
               createdAt: new Date().toISOString(),
             };
-            setDoc(userDocRef, newProfile);
+            setDoc(userDocRef, newProfile).catch(err => {
+              handleFirestoreError(err, OperationType.WRITE, `users/${firebaseUser.uid}`);
+            });
             setProfile(newProfile);
             if (pendingPhone) localStorage.removeItem('pending_phone');
+            if (pendingName) localStorage.removeItem('pending_name');
           }
           setLoading(false);
         }, (error) => {
+          // If we're logging out, ignore permission errors
+          if (!auth.currentUser) return;
+          
           console.error("Profile listener error:", error);
+          handleFirestoreError(error, OperationType.GET, `users/${firebaseUser.uid}`);
           setLoading(false);
         });
-
-        return () => unsubProfile();
       } else {
         setProfile(null);
         setLoading(false);
       }
     });
 
-    return () => unsubscribe();
+    return () => {
+      unsubscribe();
+      if (unsubProfile) unsubProfile();
+    };
   }, []);
 
   return (
