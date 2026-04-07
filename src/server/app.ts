@@ -1,7 +1,7 @@
 import axios from 'axios';
 import express from "express";
 import admin from "firebase-admin";
-import { getFirestore, Firestore } from "firebase-admin/firestore";
+import { getFirestore, Firestore, FieldValue } from "firebase-admin/firestore";
 import crypto from "crypto";
 import fs from "fs";
 import path from "path";
@@ -324,9 +324,18 @@ const start = async () => {
 };
 start();
 
-const getDb = () => {
+let initializationPromise: Promise<void> | null = null;
+
+const getDb = async () => {
   if (!db) {
-    throw new Error("Firestore not initialized. Call initializeFirebase first.");
+    if (!initializationPromise) {
+      initializationPromise = initializeFirebase();
+    }
+    await initializationPromise;
+  }
+  
+  if (!db) {
+    throw new Error("Firestore not initialized after attempt. Check server logs.");
   }
   return db;
 };
@@ -375,7 +384,7 @@ app.post("/api/payments/simulate-success", async (req, res) => {
       return res.status(400).json({ error: "Dados inválidos para depósito" });
     }
 
-    const firestore = getDb();
+    const firestore = await getDb();
     
     // Idempotency check: check if this transactionId already exists
     if (transactionId) {
@@ -398,10 +407,13 @@ app.post("/api/payments/simulate-success", async (req, res) => {
     }
 
     const depositAmount = Number(amount);
+    if (isNaN(depositAmount)) {
+      return res.status(400).json({ error: "Valor de depósito inválido (não é um número)" });
+    }
 
     // Update user balance
     await userRef.update({
-      balance: admin.firestore.FieldValue.increment(depositAmount),
+      balance: FieldValue.increment(depositAmount),
       lastDepositAt: new Date().toISOString()
     });
 
@@ -431,7 +443,11 @@ app.post("/api/payments/simulate-success", async (req, res) => {
     res.json({ success: true });
   } catch (error: any) {
     console.error("Simulation Error:", error);
-    res.status(500).json({ error: "Internal server error" });
+    res.status(500).json({ 
+      error: "Erro interno ao processar depósito", 
+      message: error.message,
+      stack: process.env.NODE_ENV === 'development' ? error.stack : undefined 
+    });
   }
 });
 
@@ -448,7 +464,7 @@ app.post("/api/orders/create", async (req, res) => {
       return res.status(400).json({ error: "Missing required fields" });
     }
 
-    const firestore = getDb();
+    const firestore = await getDb();
     const userRef = firestore.collection('users').doc(userId);
     let userDoc;
     try {
@@ -502,7 +518,7 @@ app.post("/api/orders/create", async (req, res) => {
     
     // Deduct balance
     batch.update(userRef, {
-      balance: admin.firestore.FieldValue.increment(-totalPrice)
+      balance: FieldValue.increment(-totalPrice)
     });
 
     // Create order record
@@ -550,7 +566,7 @@ app.post("/api/webhook/sales", async (req, res) => {
       return res.status(400).json({ error: "Invalid payload: userId is required" });
     }
 
-    const firestore = getDb();
+    const firestore = await getDb();
     const userRef = firestore.collection('users').doc(userId);
     const userDoc = await userRef.get();
 
@@ -586,7 +602,7 @@ app.post("/api/webhook/sales", async (req, res) => {
 
       // Update user balance
       await userRef.update({
-        balance: admin.firestore.FieldValue.increment(amount),
+        balance: FieldValue.increment(amount),
         lastDepositAt: new Date().toISOString()
       });
 

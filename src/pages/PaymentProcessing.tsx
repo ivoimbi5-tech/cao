@@ -47,8 +47,9 @@ const PaymentProcessing = () => {
             navigate('/dashboard?payment=success');
           }, 2000);
         } else {
-          console.error('Failed to process simulated payment');
-          navigate('/dashboard/add-balance?error=simulation_failed');
+          const errorData = await response.json().catch(() => ({}));
+          console.error('Failed to process simulated payment:', errorData);
+          navigate(`/dashboard/add-balance?error=${encodeURIComponent(errorData.message || 'simulation_failed')}`);
         }
       } catch (error) {
         console.error('Error processing payment:', error);
