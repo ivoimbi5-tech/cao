@@ -366,6 +366,75 @@ app.get("/api/health", (req, res) => {
   res.json({ status: "ok" });
 });
 
+// Simulated Payment Success (Replacing Plinqpay)
+app.post("/api/payments/simulate-success", async (req, res) => {
+  try {
+    const { userId, amount, transactionId } = req.body;
+
+    if (!userId || !amount || amount < 100) {
+      return res.status(400).json({ error: "Dados inválidos para depósito" });
+    }
+
+    const firestore = getDb();
+    
+    // Idempotency check: check if this transactionId already exists
+    if (transactionId) {
+      const existingTx = await firestore.collection('transactions')
+        .where('transactionId', '==', transactionId)
+        .limit(1)
+        .get();
+      
+      if (!existingTx.empty) {
+        console.log(`⚠️ Duplicate transaction detected: ${transactionId}. Skipping balance update.`);
+        return res.json({ success: true, message: "Already processed" });
+      }
+    }
+
+    const userRef = firestore.collection('users').doc(userId);
+    const userDoc = await userRef.get();
+
+    if (!userDoc.exists) {
+      return res.status(404).json({ error: "Usuário não encontrado" });
+    }
+
+    const depositAmount = Number(amount);
+
+    // Update user balance
+    await userRef.update({
+      balance: admin.firestore.FieldValue.increment(depositAmount),
+      lastDepositAt: new Date().toISOString()
+    });
+
+    // Log the transaction
+    await firestore.collection('transactions').add({
+      userId,
+      amount: depositAmount,
+      type: 'deposit',
+      status: 'approved',
+      provider: 'simulated',
+      transactionId: transactionId || `sim_${Date.now()}`,
+      createdAt: new Date().toISOString()
+    });
+
+    // Log success notification
+    await firestore.collection('notifications').add({
+      userId,
+      title: "Recarga Concluída",
+      message: `Seu saldo de ${depositAmount} Kz foi adicionado com sucesso!`,
+      type: 'deposit_success',
+      amount: depositAmount,
+      createdAt: new Date().toISOString(),
+      read: false
+    });
+
+    console.log(`✅ Balance updated via simulation for user ${userId}: +${depositAmount} Kz`);
+    res.json({ success: true });
+  } catch (error: any) {
+    console.error("Simulation Error:", error);
+    res.status(500).json({ error: "Internal server error" });
+  }
+});
+
 // SMM Panel Integration
 const SMM_API_KEY = process.env.SMM_API_KEY;
 const SMM_API_URL = process.env.SMM_API_URL;

@@ -9,6 +9,7 @@ import NewOrder from './pages/NewOrder';
 import AddBalance from './pages/AddBalance';
 import OrderHistory from './pages/OrderHistory';
 import Layout from './components/Layout';
+import PaymentProcessing from './pages/PaymentProcessing';
 
 const ProtectedRoute = ({ children }: { children: React.ReactNode }) => {
   const { user, loading } = useAuth();
@@ -62,6 +63,12 @@ function App() {
               <Layout>
                 <AddBalance />
               </Layout>
+            </ProtectedRoute>
+          } />
+          
+          <Route path="/payment-processing" element={
+            <ProtectedRoute>
+              <PaymentProcessing />
             </ProtectedRoute>
           } />
         </Routes>

@@ -1,27 +1,33 @@
-import React from 'react';
-import { Wallet, ArrowRight, MessageCircle, ExternalLink, Zap } from 'lucide-react';
+import React, { useState } from 'react';
+import { useNavigate } from 'react-router-dom';
+import { Wallet, ArrowRight, MessageCircle, Zap, Loader2, CreditCard } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 
 const AddBalance = () => {
   const { profile } = useAuth();
+  const navigate = useNavigate();
+  const [amount, setAmount] = useState<string>('');
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
 
-  const paymentOptions = [
-    {
-      amount: 300,
-      url: 'https://pay.kuenha.com/3b1deb3a-8860-40f8-9702-b0f8c44214da',
-      color: 'blue'
-    },
-    {
-      amount: 500,
-      url: 'https://pay.kuenha.com/6df52cf0-d50a-453c-a785-cce012dfb1a7',
-      color: 'emerald'
-    },
-    {
-      amount: 1000,
-      url: 'https://pay.kuenha.com/f6fb3780-0be1-4e8a-ad80-17877533aaa9',
-      color: 'purple'
+  const handleSimulatedPayment = async () => {
+    if (!profile) return;
+    
+    const numAmount = Number(amount);
+    if (isNaN(numAmount) || numAmount < 100) {
+      setError('O valor mínimo para depósito é 100 Kz');
+      return;
     }
-  ];
+
+    setLoading(true);
+    setError(null);
+
+    // Generate a unique transaction ID
+    const transactionId = `tx_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+
+    // Redirect to simulation page
+    navigate(`/payment-processing?amount=${numAmount}&txId=${transactionId}`);
+  };
 
   const handleWhatsAppSupport = () => {
     if (!profile) return;
@@ -42,32 +48,55 @@ const AddBalance = () => {
           </div>
           
           <h2 className="text-4xl font-black text-white mb-3 tracking-tight">Recarregar <span className="text-emerald-500">Saldo</span></h2>
-          <p className="text-zinc-500 font-bold mb-10 uppercase tracking-[0.2em] text-[11px]">Pagamento via Multicaixa Express</p>
+          <p className="text-zinc-500 font-bold mb-10 uppercase tracking-[0.2em] text-[11px]">Pagamento Instantâneo via Multicaixa</p>
           
-          <div className="grid grid-cols-1 gap-4 mb-10">
-            <p className="text-xs font-bold text-zinc-400 uppercase tracking-widest ml-1 mb-2">Selecione um valor:</p>
-            {paymentOptions.map((option) => (
-              <a 
-                key={option.amount}
-                href={option.url}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="group relative bg-zinc-950/50 hover:bg-zinc-900 border border-white/5 hover:border-emerald-500/50 p-6 rounded-3xl flex items-center justify-between transition-all duration-300"
-              >
-                <div className="flex items-center gap-5">
-                  <div className={`w-12 h-12 rounded-2xl bg-${option.color}-500/10 flex items-center justify-center border border-${option.color}-500/20`}>
-                    <Zap className={`w-6 h-6 text-${option.color}-400`} />
-                  </div>
-                  <div>
-                    <span className="text-2xl font-black text-white block leading-none">{option.amount.toLocaleString('pt-AO')} Kz</span>
-                    <span className="text-[10px] font-bold text-zinc-500 uppercase tracking-widest mt-1 block">Recarga Instantânea</span>
-                  </div>
+          <div className="space-y-8 mb-10">
+            <div className="space-y-4">
+              <label className="text-xs font-bold text-zinc-400 uppercase tracking-widest ml-1">Selecione o Valor do Depósito</label>
+              <div className="grid grid-cols-3 gap-4">
+                {[300, 500, 1000].map((val) => (
+                  <button
+                    key={val}
+                    onClick={() => {
+                      setAmount(val.toString());
+                      setError(null);
+                    }}
+                    className={`py-6 rounded-3xl border-2 transition-all flex flex-col items-center justify-center gap-1 ${
+                      amount === val.toString()
+                        ? 'bg-emerald-500/10 border-emerald-500 text-white shadow-lg shadow-emerald-500/10'
+                        : 'bg-zinc-950/50 border-white/5 text-zinc-500 hover:border-white/10 hover:bg-zinc-900/50'
+                    }`}
+                  >
+                    <span className={`text-2xl font-black ${amount === val.toString() ? 'text-emerald-500' : 'text-zinc-300'}`}>
+                      {val}
+                    </span>
+                    <span className="text-[10px] font-bold uppercase tracking-widest opacity-60">Kwanza</span>
+                  </button>
+                ))}
+              </div>
+              
+              {error && (
+                <div className="mt-4 p-4 bg-red-500/10 border border-red-500/20 rounded-2xl">
+                  <p className="text-red-500 text-xs font-bold leading-relaxed">{error}</p>
                 </div>
-                <div className="w-12 h-12 rounded-full bg-white/5 group-hover:bg-emerald-500 flex items-center justify-center transition-all">
-                  <ExternalLink className="w-5 h-5 text-zinc-400 group-hover:text-black transition-colors" />
-                </div>
-              </a>
-            ))}
+              )}
+            </div>
+
+            <button
+              onClick={handleSimulatedPayment}
+              disabled={loading || !amount}
+              className="w-full py-6 bg-emerald-500 hover:bg-emerald-400 disabled:bg-zinc-800 disabled:text-zinc-500 text-black font-black rounded-3xl transition-all flex items-center justify-center gap-3 shadow-xl shadow-emerald-500/10"
+            >
+              {loading ? (
+                <Loader2 className="w-6 h-6 animate-spin" />
+              ) : (
+                <>
+                  <CreditCard className="w-6 h-6" />
+                  PAGAR {amount ? `${amount} Kz` : ''} AGORA
+                  <ArrowRight className="w-5 h-5" />
+                </>
+              )}
+            </button>
           </div>
           
           <div className="pt-8 border-t border-white/5">
@@ -89,11 +118,11 @@ const AddBalance = () => {
             <ul className="space-y-4">
               <li className="flex gap-4 text-xs text-zinc-400 leading-relaxed">
                 <span className="w-6 h-6 rounded-xl bg-zinc-800 flex items-center justify-center text-[10px] font-bold text-white shrink-0 border border-white/5">1</span>
-                Clique no valor desejado para abrir o link de pagamento da Kuenha.
+                Selecione um dos valores fixos disponíveis (300, 500 ou 1000 Kz).
               </li>
               <li className="flex gap-4 text-xs text-zinc-400 leading-relaxed">
                 <span className="w-6 h-6 rounded-xl bg-zinc-800 flex items-center justify-center text-[10px] font-bold text-white shrink-0 border border-white/5">2</span>
-                Realize o pagamento via Multicaixa Express ou Referência.
+                Clique em "PAGAR AGORA" para processar sua recarga.
               </li>
               <li className="flex gap-4 text-xs text-zinc-400 leading-relaxed">
                 <span className="w-6 h-6 rounded-xl bg-zinc-800 flex items-center justify-center text-[10px] font-bold text-white shrink-0 border border-white/5">3</span>
