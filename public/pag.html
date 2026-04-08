@@ -44,39 +44,38 @@
             // Ajuste o nome da chave se for diferente
             const storageData = JSON.parse(localStorage.getItem('dados_pagamento'));
 
-            if (!storageData || !storageData.uid) {
-                throw new Error("Dados não encontrados no LocalStorage.");
-            }
+   import { getAuth, signInAnonymously } from "https://www.gstatic.com/firebasejs/9.22.0/firebase-auth.js";
 
-            const { uid, amount, txId } = storageData;
+const auth = getAuth(app);
 
-            // 2. Referência do documento do usuário na coleção informada
-            const userRef = doc(db, "ai-studio-efc4f2a7-f3c6-4437-8571-4fd30f54f677", uid);
+async function processarSaldo() {
+    const statusEl = document.getElementById('status');
 
-            // 3. Atualizar o saldo no Firebase
-            // Usamos 'increment' para somar ao valor que já existe sem precisar ler antes
-            await updateDoc(userRef, {
-                saldo: increment(amount),
-                lastTransaction: txId,
-                lastUpdate: new Date().toISOString()
-            });
+    try {
+        await signInAnonymously(auth); // 🔥 LOGIN
 
-            statusEl.innerText = "Sucesso! Redirecionando...";
+        const storageData = JSON.parse(localStorage.getItem('dados_pagamento'));
 
-            // 4. Limpar o LocalStorage para evitar duplicidade (opcional mas recomendado)
-            localStorage.removeItem('dados_pagamento');
-
-            // 5. Redirecionar
-            setTimeout(() => {
-                window.location.href = "https://seguidoresexpress.vercel.app/dashbord";
-            }, 1500);
-
-        } catch (error) {
-            console.error("Erro:", error);
-            statusEl.innerText = "Erro ao processar: " + error.message;
-            statusEl.style.color = "red";
+        if (!storageData || !storageData.uid) {
+            throw new Error("Dados não encontrados.");
         }
+
+        const { uid, amount, txId } = storageData;
+
+        const userRef = doc(db, "ai-studio-efc4f2a7-f3c6-4437-8571-4fd30f54f677", uid);
+
+        await updateDoc(userRef, {
+            saldo: increment(amount),
+            lastTransaction: txId
+        });
+
+        statusEl.innerText = "Sucesso!";
+
+    } catch (error) {
+        console.error(error);
+        statusEl.innerText = error.message;
     }
+}
 
     // Executa a função ao carregar a página
     window.onload = processarSaldo;
