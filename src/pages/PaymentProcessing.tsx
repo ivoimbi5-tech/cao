@@ -13,16 +13,19 @@ const PaymentProcessing = () => {
 
   const txId = searchParams.get('txId');
 
-  useEffect(() => {
-    // 🔥 Buscar dados do localStorage
-    const storedUser = localStorage.getItem('user');
-    const storedEmail = localStorage.getItem('email');
-    const storedAmount = localStorage.getItem('recharge_amount');
+  // 🔥 Dados do localStorage (somente para UI)
+  const storedAmount = localStorage.getItem('recharge_amount');
+  const storedEmail = localStorage.getItem('email');
 
+  useEffect(() => {
     const numericAmount = Number(storedAmount);
 
-    // ✅ Validação
-    if (!profile || !storedUser || !storedEmail || !numericAmount) {
+    // ✅ Validação segura
+    if (!profile || !numericAmount || numericAmount < 100) {
+      console.error('Dados inválidos:', {
+        profile,
+        storedAmount
+      });
       navigate('/dashboard/add-balance');
       return;
     }
@@ -32,34 +35,42 @@ const PaymentProcessing = () => {
 
     const processPayment = async () => {
       try {
-        // Simular delay
+        // ⏳ Simulação de processamento
         await new Promise(resolve => setTimeout(resolve, 3000));
+
+        const payload = {
+          userId: profile.uid, // 🔥 IMPORTANTE: backend espera isso
+          amount: numericAmount,
+          transactionId: txId
+        };
+
+        console.log('📤 Enviando para API:', payload);
 
         const response = await fetch('/api/payments/simulate-success', {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json',
           },
-          body: JSON.stringify({
-            user: storedUser,
-            email: storedEmail,
-            amount: numericAmount,
-            transactionId: txId
-          }),
+          body: JSON.stringify(payload),
         });
+
+        const text = await response.text(); // 🔥 DEBUG COMPLETO
+        console.log('📥 Resposta da API:', text);
 
         if (response.ok) {
           setStatus('success');
 
-          // 🧹 Limpar localStorage
+          // 🧹 Limpar apenas o valor
           localStorage.removeItem('recharge_amount');
 
           setTimeout(() => {
             navigate('/dashboard?payment=success');
           }, 2000);
         } else {
-          navigate('/dashboard/add-balance?error=simulation_failed');
+          console.error('Erro do servidor:', text);
+          navigate(`/dashboard/add-balance?error=${encodeURIComponent(text)}`);
         }
+
       } catch (error) {
         console.error('Erro no pagamento:', error);
         navigate('/dashboard/add-balance?error=internal_error');
@@ -67,11 +78,7 @@ const PaymentProcessing = () => {
     };
 
     processPayment();
-  }, [profile, navigate, txId]);
-
-  // 🔥 Buscar novamente para mostrar na tela
-  const storedAmount = localStorage.getItem('recharge_amount');
-  const storedEmail = localStorage.getItem('email');
+  }, [profile, navigate, txId, storedAmount]);
 
   return (
     <div className="min-h-screen bg-[#050505] flex items-center justify-center p-6">
