@@ -138,9 +138,18 @@
     }
 
     try {
+      // ⚠️ FORÇA conexão online
       const userRef = doc(db, "ai-studio-efc4f2a7-f3c6-4437-8571-4fd30f54f677", email);
 
-      const userSnap = await getDoc(userRef);
+      let userSnap;
+
+      try {
+        userSnap = await getDoc(userRef);
+      } catch (err) {
+        console.error("Erro de conexão Firebase:", err);
+        document.getElementById('status').innerText = "Erro de conexão com o Firebase.";
+        return;
+      }
 
       if (!userSnap.exists()) {
         document.getElementById('status').innerText = "Usuário não encontrado.";
@@ -164,7 +173,7 @@
       }, 1500);
 
     } catch (error) {
-      console.error(error);
+      console.error("Erro geral:", error);
       document.getElementById('status').innerText = "Erro ao processar pagamento.";
     }
   }
@@ -172,7 +181,7 @@
   // Carregar dados
   carregarDados();
 
-  // Simulação de processamento
+  // Pequeno delay
   setTimeout(() => {
     confirmarPagamento();
   }, 3000);
