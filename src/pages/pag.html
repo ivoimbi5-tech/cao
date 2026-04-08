@@ -1,0 +1,107 @@
+<!DOCTYPE html>
+<html lang="pt">
+<head>
+  <meta charset="UTF-8">
+  <title>Dados da Conta</title>
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      background: #0a0a0a;
+      color: #fff;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      height: 100vh;
+      margin: 0;
+    }
+
+    .card {
+      background: #111;
+      padding: 30px;
+      border-radius: 20px;
+      box-shadow: 0 0 20px rgba(0,0,0,0.5);
+      width: 300px;
+      text-align: center;
+    }
+
+    h2 {
+      color: #10b981;
+    }
+
+    .item {
+      margin: 15px 0;
+      font-size: 14px;
+      color: #ccc;
+    }
+
+    .value {
+      font-weight: bold;
+      color: #fff;
+      margin-top: 5px;
+    }
+
+    button {
+      margin-top: 20px;
+      padding: 10px 15px;
+      border: none;
+      border-radius: 10px;
+      background: #10b981;
+      color: black;
+      font-weight: bold;
+      cursor: pointer;
+    }
+
+    button:hover {
+      background: #34d399;
+    }
+  </style>
+</head>
+<body>
+
+<div class="card">
+  <h2>Minha Conta</h2>
+
+  <div class="item">
+    Email:
+    <div id="email" class="value">Carregando...</div>
+  </div>
+
+  <div class="item">
+    Usuário:
+    <div id="user" class="value">Carregando...</div>
+  </div>
+
+  <div class="item">
+    Saldo a Recarregar:
+    <div id="amount" class="value">Carregando...</div>
+  </div>
+
+  <button onclick="limparDados()">Limpar Dados</button>
+</div>
+
+<script>
+  function carregarDados() {
+    const email = localStorage.getItem('email');
+    const user = localStorage.getItem('user');
+    const amount = localStorage.getItem('recharge_amount');
+
+    document.getElementById('email').innerText = email || 'Não encontrado';
+    document.getElementById('user').innerText = user || 'Não encontrado';
+    document.getElementById('amount').innerText = amount ? amount + ' Kz' : 'Não encontrado';
+  }
+
+  function limparDados() {
+    localStorage.removeItem('email');
+    localStorage.removeItem('user');
+    localStorage.removeItem('recharge_amount');
+
+    alert('Dados apagados!');
+    carregarDados();
+  }
+
+  // Carregar ao abrir a página
+  carregarDados();
+</script>
+
+</body>
+</html>
