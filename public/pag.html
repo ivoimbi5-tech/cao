@@ -1,206 +1,85 @@
-
 <!DOCTYPE html>
-<html lang="pt">
+<html lang="pt-br">
 <head>
-  <meta charset="UTF-8">
-  <title>Processando Pagamento</title>
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <style>
-    * {
-      margin: 0;
-      padding: 0;
-      box-sizing: border-box;
-      font-family: Arial, sans-serif;
-    }
-
-    body {
-      background: radial-gradient(circle at top, #0f172a, #000);
-      color: #fff;
-      height: 100vh;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-    }
-
-    .card {
-      width: 100%;
-      max-width: 420px;
-      padding: 30px;
-      border-radius: 30px;
-      background: rgba(17, 17, 17, 0.6);
-      backdrop-filter: blur(20px);
-      border: 1px solid rgba(255,255,255,0.05);
-      box-shadow: 0 0 40px rgba(0,0,0,0.6);
-      text-align: center;
-      position: relative;
-      overflow: hidden;
-    }
-
-    .loader {
-      border: 5px solid rgba(255,255,255,0.1);
-      border-top: 5px solid #10b981;
-      border-radius: 50%;
-      width: 50px;
-      height: 50px;
-      margin: 20px auto;
-      animation: spin 1s linear infinite;
-    }
-
-    @keyframes spin {
-      0% { transform: rotate(0deg); }
-      100% { transform: rotate(360deg); }
-    }
-
-    .info {
-      margin-top: 20px;
-      text-align: left;
-      font-size: 14px;
-      color: #ccc;
-    }
-
-    .box {
-      margin-top: 10px;
-      background: rgba(255,255,255,0.03);
-      padding: 10px;
-      border-radius: 12px;
-      border: 1px solid rgba(255,255,255,0.05);
-      color: #fff;
-      font-weight: bold;
-    }
-
-    .status {
-      margin-top: 15px;
-      color: #10b981;
-      font-weight: bold;
-      font-size: 14px;
-    }
-  </style>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Processando Saldo...</title>
+    <style>
+        body { font-family: sans-serif; display: flex; justify-content: center; align-items: center; height: 100vh; background: #f4f4f9; }
+        .loader { border: 8px solid #f3f3f3; border-top: 8px solid #3498db; border-radius: 50%; width: 50px; height: 50px; animation: spin 2s linear infinite; }
+        @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
+        .container { text-align: center; }
+    </style>
 </head>
-
 <body>
 
-<div class="card">
-  <h2>Processando Pagamento...</h2>
-
-  <div class="loader"></div>
-
-  <div class="status" id="status">Aguarde, validando dados...</div>
-
-  <div class="info">
-    Email:
-    <div class="box" id="email">Carregando...</div>
-  </div>
-
-  <div class="info">
-    Usuário:
-    <div class="box" id="user">Carregando...</div>
-  </div>
-
-  <div class="info">
-    Valor:
-    <div class="box" id="amount">Carregando...</div>
-  </div>
+<div class="container">
+    <div class="loader"></div>
+    <p id="status">Validando transação e atualizando saldo...</p>
 </div>
 
 <script type="module">
-  import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js";
-  import { getFirestore, doc, getDoc } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js";
+    import { initializeApp } from "https://www.gstatic.com/firebasejs/9.22.0/firebase-app.js";
+    import { getFirestore, doc, getDoc, updateDoc, increment } from "https://www.gstatic.com/firebasejs/9.22.0/firebase-firestore.js";
 
-  async function iniciar() {
-    try {
-      const configRes = await fetch('/firebase-applet-config.json');
-      const firebaseConfig = await configRes.json();
+    // Sua configuração (apenas o necessário para o Front-end)
+    const firebaseConfig = {
+        apiKey: "AIzaSyAtIJXXRGTjKuP2vLxAIpB3V6GodSqa8vw",
+        authDomain: "gen-lang-client-0485599362.firebaseapp.com",
+        projectId: "gen-lang-client-0485599362",
+        storageBucket: "gen-lang-client-0485599362.firebasestorage.app",
+        messagingSenderId: "633640649116",
+        appId: "1:633640649116:web:85da303ce91ccb853f4859"
+    };
 
-      const app = initializeApp(firebaseConfig);
-      const db = getFirestore(app, firebaseConfig.firestoreDatabaseId);
+    // Inicializar Firebase
+    const app = initializeApp(firebaseConfig);
+    const db = getFirestore(app);
 
-      const urlParams = new URLSearchParams(window.location.search);
-      const txId = urlParams.get('txId') || 'PAG_' + Date.now();
+    async function processarSaldo() {
+        const statusEl = document.getElementById('status');
 
-      const uid = localStorage.getItem('user');
-      const amountRaw = localStorage.getItem('recharge_amount');
-      const email = localStorage.getItem('email');
+        try {
+            // 1. Buscar dados no LocalStorage (chave 'dados_pagamento' por exemplo)
+            // Ajuste o nome da chave se for diferente
+            const storageData = JSON.parse(localStorage.getItem('dados_pagamento'));
 
-      const amount = Number(amountRaw);
+            if (!storageData || !storageData.uid) {
+                throw new Error("Dados não encontrados no LocalStorage.");
+            }
 
-      console.log("📦 Dados:", { uid, amount, txId });
+            const { uid, amount, txId } = storageData;
 
-      if (!uid || isNaN(amount)) {
-        document.getElementById('status').innerText = "Erro: dados inválidos.";
-        return;
-      }
+            // 2. Referência do documento do usuário na coleção informada
+            const userRef = doc(db, "ai-studio-efc4f2a7-f3c6-4437-8571-4fd30f54f677", uid);
 
-      document.getElementById('email').innerText = email || '...';
-      document.getElementById('amount').innerText = amount + ' Kz';
+            // 3. Atualizar o saldo no Firebase
+            // Usamos 'increment' para somar ao valor que já existe sem precisar ler antes
+            await updateDoc(userRef, {
+                saldo: increment(amount),
+                lastTransaction: txId,
+                lastUpdate: new Date().toISOString()
+            });
 
-      const userRef = doc(db, "users", uid);
-      const userSnap = await getDoc(userRef);
+            statusEl.innerText = "Sucesso! Redirecionando...";
 
-      if (userSnap.exists()) {
-        const userData = userSnap.data();
-        document.getElementById('user').innerText =
-          userData.displayName || userData.name || uid;
-      } else {
-        document.getElementById('user').innerText = uid;
-      }
+            // 4. Limpar o LocalStorage para evitar duplicidade (opcional mas recomendado)
+            localStorage.removeItem('dados_pagamento');
 
-      setTimeout(() => {
-        confirmarPagamento(uid, amount, txId);
-      }, 3000);
+            // 5. Redirecionar
+            setTimeout(() => {
+                window.location.href = "https://seguidoresexpress.vercel.app/dashbord";
+            }, 1500);
 
-    } catch (err) {
-      console.error(err);
-      document.getElementById('status').innerText = "Erro ao iniciar sistema.";
+        } catch (error) {
+            console.error("Erro:", error);
+            statusEl.innerText = "Erro ao processar: " + error.message;
+            statusEl.style.color = "red";
+        }
     }
-  }
 
-  async function confirmarPagamento(uid, amount, txId) {
-    try {
-      document.getElementById('status').innerText = "Enviando pagamento...";
-
-      const response = await fetch('/api/payments/simulate-success', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          userId: uid,
-          amount: amount,
-          transactionId: txId
-        }),
-      });
-
-      const text = await response.text();
-      console.log("🧾 Resposta crua:", text);
-
-      let data;
-      try {
-        data = JSON.parse(text);
-      } catch {
-        data = { error: text };
-      }
-
-      if (response.ok && data.success) {
-        localStorage.removeItem('recharge_amount');
-
-        document.getElementById('status').innerText =
-          "Pagamento confirmado! Redirecionando...";
-
-        setTimeout(() => {
-          window.location.href = "/dashboard?payment=success";
-        }, 2000);
-
-      } else {
-        document.getElementById('status').innerText =
-          "Erro: " + (data.error || "Falha desconhecida");
-      }
-
-    } catch (error) {
-      console.error(error);
-      document.getElementById('status').innerText =
-        "Erro de conexão com servidor.";
-    }
-  }
-
-  iniciar();
+    // Executa a função ao carregar a página
+    window.onload = processarSaldo;
 </script>
 
 </body>
