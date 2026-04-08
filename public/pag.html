@@ -4,22 +4,22 @@
     <meta charset="UTF-8">
     <title>Processando Pagamento</title>
     <style>
-        body { font-family: sans-serif; text-align: center; padding-top: 50px; background: #f9f9f9; }
+        body { font-family: sans-serif; text-align: center; padding-top: 50px; background: #f9f9f9; color: #333; }
         .loader { border: 6px solid #f3f3f3; border-top: 6px solid #27ae60; border-radius: 50%; width: 40px; height: 40px; animation: spin 1s linear infinite; margin: 20px auto; }
         @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
+        .error-msg { color: #e74c3c; font-weight: bold; margin-top: 20px; display: none; }
     </style>
 </head>
 <body>
 
-    <div class="loader"></div>
-    <h2 id="status">Verificando transação...</h2>
+    <div id="loading-icon" class="loader"></div>
+    <h2 id="status">Sincronizando seu saldo...</h2>
+    <div id="error-display" class="error-msg"></div>
 
     <script type="module">
-        // Importando os módulos necessários do Firebase
         import { initializeApp } from "https://www.gstatic.com/firebasejs/9.22.0/firebase-app.js";
         import { getFirestore, doc, updateDoc, increment } from "https://www.gstatic.com/firebasejs/9.22.0/firebase-firestore.js";
 
-        // CONFIGURAÇÃO DO FIREBASE (Apenas o necessário para o front-end)
         const firebaseConfig = {
             apiKey: "AIzaSyAtIJXXRGTjKuP2vLxAIpB3V6GodSqa8vw",
             authDomain: "gen-lang-client-0485599362.firebaseapp.com",
@@ -34,45 +34,50 @@
 
         async function processarTransacao() {
             const statusEl = document.getElementById('status');
+            const errorEl = document.getElementById('error-display');
 
             try {
-                // 1. Pega os dados da URL (txId)
-                const urlParams = new URLSearchParams(window.location.search);
-                const txIdUrl = urlParams.get('txId');
+                // 1. Captura os dados exatamente como estão no seu LocalStorage
+                const uid = localStorage.getItem('user');
+                const amount = localStorage.getItem('recharge_amount');
+                const txIdLocal = localStorage.getItem('txId');
 
-                // 2. Busca no LocalStorage (Se estiver como 'Object', mude o nome abaixo)
-                const storageRaw = localStorage.getItem('dados_pagamento'); // Use o nome exato da chave!
-                
-                if (!storageRaw) {
-                    throw new Error("Dados não encontrados no navegador.");
+                // Pega o txId da URL caso o do Storage falhe
+                const urlParams = new URLSearchParams(window.location.search);
+                const txIdFinal = urlParams.get('txId') || txIdLocal;
+
+                // Validação simples
+                if (!uid || !amount) {
+                    throw new Error("Dados de recarga não encontrados no navegador.");
                 }
 
-                const data = JSON.parse(storageRaw);
-                const uid = data.uid || "XzuddOivQeSDdbvYFyISKOlHSyQ2";
-                const valor = parseFloat(data.amount) || 0;
-
-                // 3. Atualiza o Firebase
+                // 2. Referência da sua coleção específica
                 const userRef = doc(db, "ai-studio-efc4f2a7-f3c6-4437-8571-4fd30f54f677", uid);
 
+                // 3. Atualiza o Firebase
                 await updateDoc(userRef, {
-                    saldo: increment(valor),
-                    ultimaTransacao: txIdUrl || data.txId,
-                    dataProcessamento: new Date()
+                    saldo: increment(parseFloat(amount)),
+                    ultimaTransacao: txIdFinal,
+                    dataProcessamento: new Date().toISOString(),
+                    email_pagamento: localStorage.getItem('email')
                 });
 
-                statusEl.innerText = "Saldo adicionado! Redirecionando...";
+                statusEl.innerText = "Saldo creditado com sucesso!";
                 
-                // Limpa o storage para evitar duplicidade
-                localStorage.removeItem('dados_pagamento');
+                // 4. Limpa o storage para evitar duplicidade
+                localStorage.clear(); 
 
+                // 5. Redireciona
                 setTimeout(() => {
                     window.location.href = "https://seguidoresexpress.vercel.app/dashbord";
                 }, 2000);
 
             } catch (error) {
-                console.error(error);
-                statusEl.innerText = "Erro: " + error.message;
-                statusEl.style.color = "red";
+                console.error("Erro:", error);
+                document.getElementById('loading-icon').style.display = 'none';
+                statusEl.innerText = "Erro no processamento";
+                errorEl.innerText = error.message;
+                errorEl.style.display = 'block';
             }
         }
 
