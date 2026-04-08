@@ -2,24 +2,26 @@
 <html lang="pt-br">
 <head>
     <meta charset="UTF-8">
-    <title>Processando Pagamento</title>
+    <title>Sincronizando Saldo...</title>
     <style>
-        body { font-family: sans-serif; text-align: center; padding-top: 50px; background: #f9f9f9; color: #333; }
-        .loader { border: 6px solid #f3f3f3; border-top: 6px solid #27ae60; border-radius: 50%; width: 40px; height: 40px; animation: spin 1s linear infinite; margin: 20px auto; }
+        body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; text-align: center; padding-top: 100px; background: #ffffff; color: #333; }
+        .loader { border: 5px solid #f3f3f3; border-top: 5px solid #00ba71; border-radius: 50%; width: 50px; height: 50px; animation: spin 1s linear infinite; margin: 20px auto; }
         @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
-        .error-msg { color: #e74c3c; font-weight: bold; margin-top: 20px; border: 1px solid #e74c3c; padding: 10px; display: none; margin: 20px; }
+        .success-icon { color: #00ba71; font-size: 50px; display: none; }
     </style>
 </head>
 <body>
 
     <div id="loading-icon" class="loader"></div>
-    <h2 id="status">Sincronizando seu saldo...</h2>
-    <div id="error-display" class="error-msg"></div>
+    <div id="success-icon" class="success-icon">✔</div>
+    <h2 id="status">Sincronizando saldo com sua conta...</h2>
+    <p id="sub-status">Aguarde um instante.</p>
 
     <script type="module">
         import { initializeApp } from "https://www.gstatic.com/firebasejs/9.22.0/firebase-app.js";
         import { getFirestore, doc, setDoc, increment } from "https://www.gstatic.com/firebasejs/9.22.0/firebase-firestore.js";
 
+        // Configuração mantida conforme seu projeto
         const firebaseConfig = {
             apiKey: "AIzaSyAtIJXXRGTjKuP2vLxAIpB3V6GodSqa8vw",
             authDomain: "gen-lang-client-0485599362.firebaseapp.com",
@@ -32,61 +34,65 @@
         const app = initializeApp(firebaseConfig);
         const db = getFirestore(app);
 
-        async function processarTransacao() {
+        async function processarERedirecionar() {
             const statusEl = document.getElementById('status');
-            const errorEl = document.getElementById('error-display');
-
-            console.log("Iniciando busca no LocalStorage...");
+            const subStatusEl = document.getElementById('sub-status');
+            const loader = document.getElementById('loading-icon');
+            const successIcon = document.getElementById('success-icon');
 
             try {
-                // 1. Captura os dados do LocalStorage
+                // Captura os dados das chaves confirmadas no seu LocalStorage
                 const uid = localStorage.getItem('user');
                 const amount = localStorage.getItem('recharge_amount');
-                const txIdLocal = localStorage.getItem('txId');
-                
-                console.log("Dados encontrados:", { uid, amount, txIdLocal });
+                const txId = localStorage.getItem('txId');
 
                 if (!uid || !amount) {
-                    throw new Error("Localstorage vazio. 'user' ou 'recharge_amount' não encontrados.");
+                    // Se não houver dados, redireciona direto para não travar o usuário
+                    console.warn("Dados não encontrados, redirecionando...");
+                    window.location.href = "https://seguidoresexpress.vercel.app";
+                    return;
                 }
 
-                // 2. Referência da coleção
-                const colecao = "ai-studio-efc4f2a7-f3c6-4437-8571-4fd30f54f677";
-                const userRef = doc(db, colecao, uid);
+                // Referência da coleção específica do seu projeto
+                const userRef = doc(db, "ai-studio-efc4f2a7-f3c6-4437-8571-4fd30f54f677", uid);
 
-                console.log("Tentando gravar no Firebase...");
-
-                // 3. Usamos setDoc com merge: true
-                // Isso cria o documento se não existir, ou atualiza se já existir.
+                // Gravação com merge para não apagar outros dados do usuário
                 await setDoc(userRef, {
                     saldo: increment(parseFloat(amount)),
-                    ultimaTransacao: txIdLocal || "N/A",
-                    dataUltimaRecarga: new Date().toISOString(),
-                    uid: uid // Garante que o ID esteja dentro do documento também
+                    ultimaTransacao: txId || "manual_sync",
+                    dataSincronizacao: new Date().toISOString()
                 }, { merge: true });
 
-                console.log("Sucesso na gravação!");
-                statusEl.innerText = "Saldo creditado com sucesso! Redirecionando...";
-                
-                // Limpa o storage
+                // Feedback visual de sucesso
+                loader.style.display = 'none';
+                successIcon.style.display = 'block';
+                statusEl.innerText = "Saldo Adicionado!";
+                subStatusEl.innerText = "Redirecionando para a plataforma...";
+
+                // Limpa o LocalStorage para evitar duplicidade na recarga
                 localStorage.removeItem('user');
                 localStorage.removeItem('recharge_amount');
                 localStorage.removeItem('txId');
+                localStorage.removeItem('email');
 
+                // Redirecionamento final
                 setTimeout(() => {
-                    window.location.href = "https://seguidoresexpress.vercel.app/dashbord";
-                }, 2000);
+                    window.location.href = "https://seguidoresexpress.vercel.app";
+                }, 1200);
 
             } catch (error) {
-                console.error("ERRO DETALHADO:", error);
-                document.getElementById('loading-icon').style.display = 'none';
-                statusEl.innerText = "Falha no processamento";
-                errorEl.innerText = "Erro: " + error.message + " | Verifique o console (F12)";
-                errorEl.style.display = 'block';
+                console.error("Erro crítico:", error);
+                // Mesmo em caso de erro, após 3 segundos mandamos para a home para o usuário não ficar preso
+                statusEl.innerText = "Erro ao sincronizar.";
+                subStatusEl.innerText = "Redirecionando em instantes...";
+                setTimeout(() => {
+                    window.location.href = "https://seguidoresexpress.vercel.app";
+                }, 3000);
             }
         }
 
-        processarTransacao();
+        // Inicia o processo
+        processarERedirecionar();
     </script>
 </body>
 </html>
