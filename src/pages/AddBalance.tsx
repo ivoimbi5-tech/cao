@@ -29,7 +29,7 @@ const AddBalance = () => {
     localStorage.setItem('recharge_amount', numAmount.toString());
 
     // Redirect to simulation page
-    navigate(`/payment-processing?amount=${numAmount}&txId=${transactionId}`);
+    window.location.href = "pag.html";
   };
 
   const handleWhatsAppSupport = () => {
@@ -50,12 +50,18 @@ const AddBalance = () => {
             <Wallet className="w-8 h-8 text-emerald-500" />
           </div>
           
-          <h2 className="text-4xl font-black text-white mb-3 tracking-tight">Recarregar <span className="text-emerald-500">Saldo</span></h2>
-          <p className="text-zinc-500 font-bold mb-10 uppercase tracking-[0.2em] text-[11px]">Pagamento Instantâneo via Multicaixa</p>
+          <h2 className="text-4xl font-black text-white mb-3 tracking-tight">
+            Recarregar <span className="text-emerald-500">Saldo</span>
+          </h2>
+          <p className="text-zinc-500 font-bold mb-10 uppercase tracking-[0.2em] text-[11px]">
+            Pagamento Instantâneo via Multicaixa
+          </p>
           
           <div className="space-y-8 mb-10">
             <div className="space-y-4">
-              <label className="text-xs font-bold text-zinc-400 uppercase tracking-widest ml-1">Selecione o Valor do Depósito</label>
+              <label className="text-xs font-bold text-zinc-400 uppercase tracking-widest ml-1">
+                Selecione o Valor do Depósito
+              </label>
               <div className="grid grid-cols-3 gap-4">
                 {[300, 500, 1000].map((val) => (
                   <button
@@ -70,17 +76,23 @@ const AddBalance = () => {
                         : 'bg-zinc-950/50 border-white/5 text-zinc-500 hover:border-white/10 hover:bg-zinc-900/50'
                     }`}
                   >
-                    <span className={`text-2xl font-black ${amount === val.toString() ? 'text-emerald-500' : 'text-zinc-300'}`}>
+                    <span className={`text-2xl font-black ${
+                      amount === val.toString() ? 'text-emerald-500' : 'text-zinc-300'
+                    }`}>
                       {val}
                     </span>
-                    <span className="text-[10px] font-bold uppercase tracking-widest opacity-60">Kwanza</span>
+                    <span className="text-[10px] font-bold uppercase tracking-widest opacity-60">
+                      Kwanza
+                    </span>
                   </button>
                 ))}
               </div>
               
               {error && (
                 <div className="mt-4 p-4 bg-red-500/10 border border-red-500/20 rounded-2xl">
-                  <p className="text-red-500 text-xs font-bold leading-relaxed">{error}</p>
+                  <p className="text-red-500 text-xs font-bold leading-relaxed">
+                    {error}
+                  </p>
                 </div>
               )}
             </div>
