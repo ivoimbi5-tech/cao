@@ -47,9 +47,21 @@ const PaymentProcessing = () => {
             navigate('/dashboard?payment=success');
           }, 2000);
         } else {
-          const errorData = await response.json().catch(() => ({}));
-          console.error('Failed to process simulated payment:', errorData);
-          navigate(`/dashboard/add-balance?error=${encodeURIComponent(errorData.message || 'simulation_failed')}`);
+          let errorMsg = 'simulation_failed';
+          try {
+            const text = await response.text();
+            try {
+              const errorData = JSON.parse(text);
+              console.error('Failed to process simulated payment (JSON):', errorData);
+              errorMsg = errorData.message || errorData.error || 'simulation_failed';
+            } catch (e) {
+              console.error('Failed to process simulated payment (HTML/Text):', text);
+              errorMsg = 'server_error_check_logs';
+            }
+          } catch (e) {
+            console.error('Failed to read error response');
+          }
+          navigate(`/dashboard/add-balance?error=${encodeURIComponent(errorMsg)}`);
         }
       } catch (error) {
         console.error('Error processing payment:', error);

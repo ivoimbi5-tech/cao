@@ -17,7 +17,9 @@ const Login = () => {
     setError('');
     
     try {
-      await signInWithEmailAndPassword(auth, email, password);
+      const userCredential = await signInWithEmailAndPassword(auth, email, password);
+      localStorage.setItem('user', userCredential.user.uid);
+      localStorage.setItem('email', userCredential.user.email || '');
       navigate('/dashboard');
     } catch (err: any) {
       console.error("Login error:", err);

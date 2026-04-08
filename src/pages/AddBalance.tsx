@@ -25,6 +25,9 @@ const AddBalance = () => {
     // Generate a unique transaction ID
     const transactionId = `tx_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
 
+    // Save recharge amount to localStorage
+    localStorage.setItem('recharge_amount', numAmount.toString());
+
     // Redirect to simulation page
     navigate(`/payment-processing?amount=${numAmount}&txId=${transactionId}`);
   };

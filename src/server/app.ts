@@ -109,17 +109,22 @@ async function identifyIdentity() {
       debugLog("Current Identity (from ADC):", currentIdentity);
     } else {
       // Try to fetch from metadata server if on Cloud Run
+      // Added timeout to prevent hanging in non-GCP environments like Vercel
       const metadataUrl = "http://metadata.google.internal/computeMetadata/v1/instance/service-accounts/default/email";
       try {
+        const controller = new AbortController();
+        const timeoutId = setTimeout(() => controller.abort(), 1000);
         const response = await fetch(metadataUrl, {
-          headers: { "Metadata-Flavor": "Google" }
+          headers: { "Metadata-Flavor": "Google" },
+          signal: controller.signal
         });
+        clearTimeout(timeoutId);
         if (response.ok) {
           currentIdentity = await response.text();
           debugLog("Current Identity (from Metadata):", currentIdentity);
         }
       } catch (mErr) {
-        debugLog("Metadata server not reachable (expected if not on Cloud Run)");
+        debugLog("Metadata server not reachable or timeout (expected if not on Cloud Run)");
       }
     }
   } catch (err) {
@@ -131,6 +136,11 @@ async function identifyIdentity() {
 const initializeFirebase = async () => {
   debugLog("Starting initializeFirebase...");
   try {
+    // Identify identity first if not already done
+    if (detectedProjectId === "não identificado") {
+      await identifyIdentity();
+    }
+
     if (!admin.apps.length) {
       const serviceAccount = process.env.FIREBASE_SERVICE_ACCOUNT;
       const saPreview = serviceAccount ? `${serviceAccount.substring(0, 10)}...${serviceAccount.slice(-10)}` : "none";
@@ -312,26 +322,21 @@ const initializeFirebase = async () => {
   }
 };
 
-// Start initialization
-const start = async () => {
-  console.log("🚀 Starting Firebase initialization sequence...");
-  try {
-    await identifyIdentity();
-    await initializeFirebase();
-  } catch (err: any) {
-    console.error("❌ Fatal error during startup:", err.message);
-  }
-};
-start();
-
+// Start initialization logic handled by getDb to avoid race conditions in serverless
 let initializationPromise: Promise<void> | null = null;
 
 const getDb = async () => {
   if (!db) {
     if (!initializationPromise) {
+      debugLog("Creating new initializationPromise...");
       initializationPromise = initializeFirebase();
     }
-    await initializationPromise;
+    try {
+      await initializationPromise;
+    } catch (err: any) {
+      initializationPromise = null; // Allow retry on next request
+      throw err;
+    }
   }
   
   if (!db) {
@@ -440,12 +445,13 @@ app.post("/api/payments/simulate-success", async (req, res) => {
     });
 
     console.log(`✅ Balance updated via simulation for user ${userId}: +${depositAmount} Kz`);
-    res.json({ success: true });
+    return res.json({ success: true });
   } catch (error: any) {
     console.error("Simulation Error:", error);
-    res.status(500).json({ 
+    return res.status(500).json({ 
       error: "Erro interno ao processar depósito", 
       message: error.message,
+      code: error.code,
       stack: process.env.NODE_ENV === 'development' ? error.stack : undefined 
     });
   }
@@ -633,11 +639,21 @@ app.post("/api/webhook/sales", async (req, res) => {
       return res.json({ success: true, message: "Balance updated" });
     }
 
-    res.json({ success: true, message: "Webhook received but no action taken for status: " + status });
+    return res.json({ success: true, message: "Webhook received but no action taken for status: " + status });
   } catch (error: any) {
     console.error("Error processing sales webhook:", error);
-    res.status(500).json({ error: "Internal server error" });
+    return res.status(500).json({ error: "Internal server error", message: error.message });
   }
+});
+
+// Global Error Handler
+app.use((err: any, req: express.Request, res: express.Response, next: express.NextFunction) => {
+  console.error("Unhandled Error:", err);
+  res.status(500).json({
+    error: "Erro interno do servidor",
+    message: err.message || "Ocorreu um erro inesperado",
+    stack: process.env.NODE_ENV === 'development' ? err.stack : undefined
+  });
 });
 
 export { app };
