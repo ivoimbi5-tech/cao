@@ -1,61 +1,63 @@
-
 import admin from "firebase-admin";
 
-// 🔥 Inicializa Firebase Admin (uma vez só)
-if (!admin.apps.length) {
-  admin.initializeApp({
-    credential: admin.credential.cert(JSON.parse(process.env.FIREBASE_SERVICE_ACCOUNT))
-  });
-}
+let db;
 
-const db = admin.firestore();
+try {
+  if (!admin.apps.length) {
+    admin.initializeApp({
+      credential: admin.credential.cert({
+        projectId: process.env.FIREBASE_PROJECT_ID,
+        clientEmail: process.env.FIREBASE_CLIENT_EMAIL,
+        privateKey: process.env.FIREBASE_PRIVATE_KEY.replace(/\\n/g, '\n'),
+      }),
+    });
+
+    console.log("🔥 Firebase OK");
+  }
+
+  db = admin.firestore();
+
+} catch (err) {
+  console.error("❌ ERRO FIREBASE INIT:", err);
+}
 
 export default async function handler(req, res) {
   try {
-    // ✅ Permitir só POST
+    if (!db) {
+      throw new Error("Firestore não inicializado");
+    }
+
     if (req.method !== "POST") {
-      return res.status(405).json({ error: "Método não permitido" });
+      return res.status(405).json({ error: "Método inválido" });
     }
 
     const { userId, amount, transactionId } = req.body;
 
-    console.log("📩 Dados recebidos:", { userId, amount, transactionId });
+    console.log("📩 Dados:", { userId, amount, transactionId });
 
-    // ✅ Validação forte
-    if (!userId || !transactionId || typeof amount !== "number" || isNaN(amount)) {
+    if (!userId || typeof amount !== "number" || isNaN(amount)) {
       return res.status(400).json({ error: "Dados inválidos" });
     }
 
-    if (amount <= 0) {
-      return res.status(400).json({ error: "Valor inválido" });
+    const ref = db.collection("users").doc(userId);
+    const snap = await ref.get();
+
+    if (!snap.exists) {
+      return res.status(404).json({ error: "Usuário não existe" });
     }
 
-    const userRef = db.collection("users").doc(userId);
-    const userDoc = await userRef.get();
-
-    // ❌ Usuário não existe
-    if (!userDoc.exists) {
-      return res.status(404).json({ error: "Usuário não encontrado" });
-    }
-
-    // ✅ Atualiza saldo
-    await userRef.update({
+    await ref.update({
       balance: admin.firestore.FieldValue.increment(amount),
-      lastTransactionId: transactionId,
-      updatedAt: admin.firestore.FieldValue.serverTimestamp()
+      lastTransaction: transactionId,
     });
-
-    console.log("✅ Pagamento aplicado com sucesso");
 
     return res.status(200).json({ success: true });
 
-catch (error) {
-  console.error("❌ ERRO COMPLETO:", error);
+  } catch (error) {
+    console.error("❌ ERRO:", error);
 
-  return res.status(500).json({
-    error: "Erro interno",
-    message: error.message,
-    stack: error.stack
-  });
-}
+    return res.status(500).json({
+      error: error.message
+    });
+  }
 }
