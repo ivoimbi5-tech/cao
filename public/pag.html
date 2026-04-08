@@ -1,113 +1,9 @@
-<!DOCTYPE html>
-<html lang="pt">
-<head>
-  <meta charset="UTF-8">
-  <title>Processando Pagamento</title>
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <style>
-    * {
-      margin: 0;
-      padding: 0;
-      box-sizing: border-box;
-      font-family: Arial, sans-serif;
-    }
-
-    body {
-      background: radial-gradient(circle at top, #0f172a, #000);
-      color: #fff;
-      height: 100vh;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-    }
-
-    .card {
-      width: 100%;
-      max-width: 420px;
-      padding: 30px;
-      border-radius: 30px;
-      background: rgba(17, 17, 17, 0.6);
-      backdrop-filter: blur(20px);
-      border: 1px solid rgba(255,255,255,0.05);
-      box-shadow: 0 0 40px rgba(0,0,0,0.6);
-      text-align: center;
-      position: relative;
-      overflow: hidden;
-    }
-
-    .loader {
-      border: 5px solid rgba(255,255,255,0.1);
-      border-top: 5px solid #10b981;
-      border-radius: 50%;
-      width: 50px;
-      height: 50px;
-      margin: 20px auto;
-      animation: spin 1s linear infinite;
-    }
-
-    @keyframes spin {
-      0% { transform: rotate(0deg); }
-      100% { transform: rotate(360deg); }
-    }
-
-    .info {
-      margin-top: 20px;
-      text-align: left;
-      font-size: 14px;
-      color: #ccc;
-    }
-
-    .box {
-      margin-top: 10px;
-      background: rgba(255,255,255,0.03);
-      padding: 10px;
-      border-radius: 12px;
-      border: 1px solid rgba(255,255,255,0.05);
-      color: #fff;
-      font-weight: bold;
-    }
-
-    .status {
-      margin-top: 15px;
-      color: #10b981;
-      font-weight: bold;
-      font-size: 14px;
-    }
-  </style>
-</head>
-
-<body>
-
-<div class="card">
-  <h2>Processando Pagamento...</h2>
-
-  <div class="loader"></div>
-
-  <div class="status" id="status">Aguarde, validando dados...</div>
-
-  <div class="info">
-    Email:
-    <div class="box" id="email">Carregando...</div>
-  </div>
-
-  <div class="info">
-    Usuário:
-    <div class="box" id="user">Carregando...</div>
-  </div>
-
-  <div class="info">
-    Valor:
-    <div class="box" id="amount">Carregando...</div>
-  </div>
-</div>
-
 <script type="module">
   import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js";
   import { getFirestore, doc, getDoc } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js";
 
   async function iniciar() {
     try {
-      // 1. Carrega a configuração real do sistema
       const configRes = await fetch('/firebase-applet-config.json');
       const firebaseConfig = await configRes.json();
 
@@ -118,73 +14,87 @@
       const txId = urlParams.get('txId') || 'PAG_' + Date.now();
 
       const uid = localStorage.getItem('user');
-      const amount = localStorage.getItem('recharge_amount');
+      const amountRaw = localStorage.getItem('recharge_amount');
       const email = localStorage.getItem('email');
 
-      if (!uid || !amount) {
-        document.getElementById('status').innerText = "Erro: Dados de sessão não encontrados.";
+      const amount = Number(amountRaw);
+
+      console.log("📦 Dados:", { uid, amount, txId });
+
+      if (!uid || isNaN(amount)) {
+        document.getElementById('status').innerText = "Erro: dados inválidos.";
         return;
       }
 
-      // 2. Busca o nome real do usuário no sistema
       document.getElementById('email').innerText = email || '...';
       document.getElementById('amount').innerText = amount + ' Kz';
-      
+
       const userRef = doc(db, "users", uid);
       const userSnap = await getDoc(userRef);
-      
+
       if (userSnap.exists()) {
         const userData = userSnap.data();
-        document.getElementById('user').innerText = userData.displayName || userData.name || uid;
+        document.getElementById('user').innerText =
+          userData.displayName || userData.name || uid;
       } else {
         document.getElementById('user').innerText = uid;
       }
 
-      // 3. Processa o pagamento após um pequeno delay visual
       setTimeout(() => {
         confirmarPagamento(uid, amount, txId);
       }, 3000);
 
     } catch (err) {
-      console.error("Erro ao iniciar:", err);
-      document.getElementById('status').innerText = "Erro ao conectar com o sistema.";
+      console.error(err);
+      document.getElementById('status').innerText = "Erro ao iniciar sistema.";
     }
   }
 
   async function confirmarPagamento(uid, amount, txId) {
     try {
-      document.getElementById('status').innerText = "Comunicando com o servidor...";
+      document.getElementById('status').innerText = "Enviando pagamento...";
 
       const response = await fetch('/api/payments/simulate-success', {
         method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
+        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           userId: uid,
-          amount: Number(amount),
+          amount: amount,
           transactionId: txId
         }),
       });
 
-      const data = await response.json();
+      const text = await response.text();
+      console.log("🧾 Resposta crua:", text);
+
+      let data;
+      try {
+        data = JSON.parse(text);
+      } catch {
+        data = { error: text };
+      }
 
       if (response.ok && data.success) {
         localStorage.removeItem('recharge_amount');
-        document.getElementById('status').innerText = "Pagamento confirmado com sucesso! Redirecionando...";
+
+        document.getElementById('status').innerText =
+          "Pagamento confirmado! Redirecionando...";
+
         setTimeout(() => {
           window.location.href = "/dashboard?payment=success";
         }, 2000);
+
       } else {
-        document.getElementById('status').innerText = "Erro no servidor: " + (data.error || "Falha ao processar");
+        document.getElementById('status').innerText =
+          "Erro: " + (data.error || "Falha desconhecida");
       }
+
     } catch (error) {
-      document.getElementById('status').innerText = "Erro de conexão com o servidor.";
+      console.error(error);
+      document.getElementById('status').innerText =
+        "Erro de conexão com servidor.";
     }
   }
 
   iniciar();
 </script>
-
-</body>
-</html>
