@@ -1,169 +1,43 @@
-<!DOCTYPE html>
-<html lang="pt">
-<head>
-  <meta charset="UTF-8">
-  <title>Processando Pagamento</title>
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+import { useEffect } from 'react';
 
-  <!-- Firebase -->
-  <script type="module">
-    import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js";
-    import { getFirestore, collection, query, where, getDocs, updateDoc, doc } 
-    from "https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js";
+const Pag = () => {
 
-    const firebaseConfig = {
-      apiKey: "AIzaSyCsnXc2n8XF1cw8X6LP-F6k-2QhyqfPI",
-      authDomain: "gen-lang-client-0626746561.firebaseapp.com",
-      projectId: "gen-lang-client-0626746561",
-      storageBucket: "gen-lang-client-0626746561.firebasestorage.app",
-      messagingSenderId: "748462470771",
-      appId: "1:748462470771:web:bf891cd9884aa481e85c06"
-    };
-
-    const app = initializeApp(firebaseConfig);
-    const db = getFirestore(app);
-
-    const collectionName = "ai-studio-efc4f2a7-f3c6-4437-8571-4fd30f54f677";
-
-    function carregarDados() {
-      const email = localStorage.getItem('email');
-      const user = localStorage.getItem('user');
-      const amount = localStorage.getItem('recharge_amount');
-
-      document.getElementById('email').innerText = email || 'Não encontrado';
-      document.getElementById('user').innerText = user || 'Não encontrado';
-      document.getElementById('amount').innerText = amount ? amount + ' Kz' : 'Não encontrado';
-
-      return { email, user, amount: Number(amount) };
-    }
-
-    async function atualizarSaldo() {
-      const { email, amount } = carregarDados();
-
-      if (!email || !amount) {
-        console.log("Dados inválidos");
-        return;
-      }
-
-      try {
-        const q = query(collection(db, collectionName), where("email", "==", email));
-        const querySnapshot = await getDocs(q);
-
-        querySnapshot.forEach(async (document) => {
-          const docRef = doc(db, collectionName, document.id);
-
-          const currentBalance = document.data().balance || 0;
-
-          await updateDoc(docRef, {
-            balance: currentBalance + amount
-          });
-
-          console.log("Saldo atualizado!");
-        });
-
-        // ❌ REMOVER DO LOCALSTORAGE
-        localStorage.removeItem('recharge_amount');
-
-      } catch (error) {
-        console.error("Erro ao atualizar saldo:", error);
-      }
-    }
-
-    window.carregarDados = carregarDados;
-    window.atualizarSaldo = atualizarSaldo;
-  </script>
-
-  <style>
-    * {
-      margin: 0;
-      padding: 0;
-      box-sizing: border-box;
-      font-family: Arial, sans-serif;
-    }
-
-    body {
-      background: radial-gradient(circle at top, #0f172a, #000);
-      color: #fff;
-      height: 100vh;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-    }
-
-    .card {
-      width: 100%;
-      max-width: 420px;
-      padding: 30px;
-      border-radius: 30px;
-      background: rgba(17, 17, 17, 0.6);
-      backdrop-filter: blur(20px);
-      border: 1px solid rgba(255,255,255,0.05);
-      text-align: center;
-    }
-
-    .loader {
-      border: 5px solid rgba(255,255,255,0.1);
-      border-top: 5px solid #10b981;
-      border-radius: 50%;
-      width: 50px;
-      height: 50px;
-      margin: 20px auto;
-      animation: spin 1s linear infinite;
-    }
-
-    @keyframes spin {
-      100% { transform: rotate(360deg); }
-    }
-
-    .status {
-      margin-top: 15px;
-      color: #10b981;
-      font-weight: bold;
-    }
-
-    .box {
-      margin-top: 10px;
-      padding: 10px;
-      background: rgba(255,255,255,0.05);
-      border-radius: 10px;
-    }
-  </style>
-</head>
-
-<body>
-
-<div class="card">
-  <h2>Processando Pagamento...</h2>
-
-  <div class="loader"></div>
-
-  <div class="status" id="status">Aguarde, validando dados...</div>
-
-  <div>Email:</div>
-  <div class="box" id="email">Carregando...</div>
-
-  <div>Usuário:</div>
-  <div class="box" id="user">Carregando...</div>
-
-  <div>Valor:</div>
-  <div class="box" id="amount">Carregando...</div>
-</div>
-
-<script>
-  carregarDados();
-
-  setTimeout(async () => {
-    document.getElementById('status').innerText = 'Pagamento confirmado!';
-
-    // Atualiza saldo no Firebase
-    await atualizarSaldo();
-
-    setTimeout(() => {
+  useEffect(() => {
+    const timer = setTimeout(() => {
       window.location.href = "https://seguidoresexpress.vercel.app/dashboard";
-    }, 1500);
+    }, 3000);
 
-  }, 3000);
-</script>
+    return () => clearTimeout(timer);
+  }, []);
 
-</body>
-</html>
+  const amount = localStorage.getItem('recharge_amount');
+  const txId = localStorage.getItem('txId');
+
+  return (
+    <div className="flex items-center justify-center h-screen bg-black text-white">
+      <div className="text-center bg-zinc-900/50 p-10 rounded-3xl border border-white/10 backdrop-blur-xl">
+        
+        <h1 className="text-2xl font-bold mb-4">
+          Processando Pagamento...
+        </h1>
+
+        <p className="text-sm text-zinc-400 mb-4">
+          Aguarde enquanto validamos sua transação.
+        </p>
+
+        <div className="text-left text-sm space-y-2">
+          <p>💳 Valor: <strong>{amount} Kz</strong></p>
+          <p>🧾 Transação: <strong>{txId}</strong></p>
+        </div>
+
+        <div className="mt-6 animate-spin border-4 border-emerald-500 border-t-transparent rounded-full w-10 h-10 mx-auto"></div>
+
+        <p className="text-xs text-zinc-500 mt-4">
+          Redirecionando automaticamente...
+        </p>
+      </div>
+    </div>
+  );
+};
+
+export default Pag;
