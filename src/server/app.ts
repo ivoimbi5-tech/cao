@@ -384,25 +384,37 @@ app.get("/api/health", (req, res) => {
 
 // Simulated Payment Success (Replacing Plinqpay)
 app.post("/api/payments/simulate-success", async (req, res) => {
-  try {
-    const { userId, amount, transactionId } = req.body;
+  const { userId, amount, transactionId } = req.body;
+  console.log(`[PaymentSimulation] Received request for user ${userId}, amount ${amount}, tx ${transactionId}`);
 
-    if (!userId || !amount || amount < 100) {
-      return res.status(400).json({ error: "Dados inválidos para depósito" });
+  try {
+    if (!userId || amount === undefined || amount === null) {
+      return res.status(400).json({ error: "Dados incompletos para depósito (userId ou amount ausente)" });
+    }
+
+    const depositAmount = Number(amount);
+    if (isNaN(depositAmount) || depositAmount < 100) {
+      return res.status(400).json({ error: "Valor de depósito inválido (mínimo 100 Kz)" });
     }
 
     const firestore = await getDb();
     
     // Idempotency check: check if this transactionId already exists
     if (transactionId) {
-      const existingTx = await firestore.collection('transactions')
-        .where('transactionId', '==', transactionId)
-        .limit(1)
-        .get();
-      
-      if (!existingTx.empty) {
-        console.log(`⚠️ Duplicate transaction detected: ${transactionId}. Skipping balance update.`);
-        return res.json({ success: true, message: "Already processed" });
+      try {
+        const existingTx = await firestore.collection('transactions')
+          .where('transactionId', '==', transactionId)
+          .limit(1)
+          .get();
+        
+        if (!existingTx.empty) {
+          console.log(`⚠️ Duplicate transaction detected: ${transactionId}. Skipping balance update.`);
+          return res.json({ success: true, message: "Already processed" });
+        }
+      } catch (dbErr: any) {
+        console.error("Error checking idempotency:", dbErr.message);
+        // Continue anyway if it's just a query error, or fail? Let's fail safe.
+        return res.status(500).json({ error: "Erro ao verificar duplicidade de transação", details: dbErr.message });
       }
     }
 
@@ -410,50 +422,59 @@ app.post("/api/payments/simulate-success", async (req, res) => {
     const userDoc = await userRef.get();
 
     if (!userDoc.exists) {
-      return res.status(404).json({ error: "Usuário não encontrado" });
-    }
-
-    const depositAmount = Number(amount);
-    if (isNaN(depositAmount)) {
-      return res.status(400).json({ error: "Valor de depósito inválido (não é um número)" });
+      console.warn(`[PaymentSimulation] User ${userId} not found`);
+      return res.status(404).json({ error: "Usuário não encontrado no sistema" });
     }
 
     // Update user balance
-    await userRef.update({
-      balance: FieldValue.increment(depositAmount),
-      lastDepositAt: new Date().toISOString()
-    });
+    try {
+      await userRef.update({
+        balance: admin.firestore.FieldValue.increment(depositAmount),
+        lastDepositAt: new Date().toISOString()
+      });
+    } catch (updErr: any) {
+      console.error("Error updating user balance:", updErr.message);
+      throw new Error(`Falha ao atualizar saldo: ${updErr.message}`);
+    }
 
     // Log the transaction
-    await firestore.collection('transactions').add({
-      userId,
-      amount: depositAmount,
-      type: 'deposit',
-      status: 'approved',
-      provider: 'simulated',
-      transactionId: transactionId || `sim_${Date.now()}`,
-      createdAt: new Date().toISOString()
-    });
+    try {
+      await firestore.collection('transactions').add({
+        userId,
+        amount: depositAmount,
+        type: 'deposit',
+        status: 'approved',
+        provider: 'simulated',
+        transactionId: transactionId || `sim_${Date.now()}`,
+        createdAt: new Date().toISOString()
+      });
+    } catch (txErr: any) {
+      console.error("Error logging transaction:", txErr.message);
+      // We don't throw here because balance was already updated, but it's bad.
+    }
 
     // Log success notification
-    await firestore.collection('notifications').add({
-      userId,
-      title: "Recarga Concluída",
-      message: `Seu saldo de ${depositAmount} Kz foi adicionado com sucesso!`,
-      type: 'deposit_success',
-      amount: depositAmount,
-      createdAt: new Date().toISOString(),
-      read: false
-    });
+    try {
+      await firestore.collection('notifications').add({
+        userId,
+        title: "Recarga Concluída",
+        message: `Seu saldo de ${depositAmount} Kz foi adicionado com sucesso!`,
+        type: 'deposit_success',
+        amount: depositAmount,
+        createdAt: new Date().toISOString(),
+        read: false
+      });
+    } catch (notifErr: any) {
+      console.error("Error creating notification:", notifErr.message);
+    }
 
     console.log(`✅ Balance updated via simulation for user ${userId}: +${depositAmount} Kz`);
     return res.json({ success: true });
   } catch (error: any) {
-    console.error("Simulation Error:", error);
+    console.error("Simulation Fatal Error:", error);
     return res.status(500).json({ 
       error: "Erro interno ao processar depósito", 
       message: error.message,
-      code: error.code,
       stack: process.env.NODE_ENV === 'development' ? error.stack : undefined 
     });
   }
