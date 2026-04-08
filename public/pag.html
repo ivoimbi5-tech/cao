@@ -1,3 +1,107 @@
+
+<!DOCTYPE html>
+<html lang="pt">
+<head>
+  <meta charset="UTF-8">
+  <title>Processando Pagamento</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <style>
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+      font-family: Arial, sans-serif;
+    }
+
+    body {
+      background: radial-gradient(circle at top, #0f172a, #000);
+      color: #fff;
+      height: 100vh;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+
+    .card {
+      width: 100%;
+      max-width: 420px;
+      padding: 30px;
+      border-radius: 30px;
+      background: rgba(17, 17, 17, 0.6);
+      backdrop-filter: blur(20px);
+      border: 1px solid rgba(255,255,255,0.05);
+      box-shadow: 0 0 40px rgba(0,0,0,0.6);
+      text-align: center;
+      position: relative;
+      overflow: hidden;
+    }
+
+    .loader {
+      border: 5px solid rgba(255,255,255,0.1);
+      border-top: 5px solid #10b981;
+      border-radius: 50%;
+      width: 50px;
+      height: 50px;
+      margin: 20px auto;
+      animation: spin 1s linear infinite;
+    }
+
+    @keyframes spin {
+      0% { transform: rotate(0deg); }
+      100% { transform: rotate(360deg); }
+    }
+
+    .info {
+      margin-top: 20px;
+      text-align: left;
+      font-size: 14px;
+      color: #ccc;
+    }
+
+    .box {
+      margin-top: 10px;
+      background: rgba(255,255,255,0.03);
+      padding: 10px;
+      border-radius: 12px;
+      border: 1px solid rgba(255,255,255,0.05);
+      color: #fff;
+      font-weight: bold;
+    }
+
+    .status {
+      margin-top: 15px;
+      color: #10b981;
+      font-weight: bold;
+      font-size: 14px;
+    }
+  </style>
+</head>
+
+<body>
+
+<div class="card">
+  <h2>Processando Pagamento...</h2>
+
+  <div class="loader"></div>
+
+  <div class="status" id="status">Aguarde, validando dados...</div>
+
+  <div class="info">
+    Email:
+    <div class="box" id="email">Carregando...</div>
+  </div>
+
+  <div class="info">
+    Usuário:
+    <div class="box" id="user">Carregando...</div>
+  </div>
+
+  <div class="info">
+    Valor:
+    <div class="box" id="amount">Carregando...</div>
+  </div>
+</div>
+
 <script type="module">
   import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js";
   import { getFirestore, doc, getDoc } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js";
@@ -98,3 +202,6 @@
 
   iniciar();
 </script>
+
+</body>
+</html>
