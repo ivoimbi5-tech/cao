@@ -52,28 +52,49 @@ async function processarSaldo() {
     const statusEl = document.getElementById('status');
 
     try {
-        await signInAnonymously(auth); // 🔥 LOGIN
+        // 1. Tenta buscar no LocalStorage (verifique se o nome é 'dados_pagamento' ou 'Object')
+        // Se você salvou como 'Object', mude para 'Object' abaixo
+        let storageData = JSON.parse(localStorage.getItem('dados_pagamento'));
 
-        const storageData = JSON.parse(localStorage.getItem('dados_pagamento'));
+        // 2. Se não achou no LocalStorage, tenta pegar os dados da URL (fallback)
+        if (!storageData) {
+            const urlParams = new URLSearchParams(window.location.search);
+            if (urlParams.has('txId')) {
+                // Aqui simulamos o objeto caso ele esteja na URL
+                storageData = {
+                    txId: urlParams.get('txId'),
+                    amount: 300, // Valor padrão ou vindo da URL
+                    uid: "XzuddOivQeSDdbvYFyISKOlHSyQ2" // UID fixo ou vindo da URL
+                };
+            }
+        }
 
+        // Se mesmo assim não encontrar nada, avisa o usuário
         if (!storageData || !storageData.uid) {
-            throw new Error("Dados não encontrados.");
+            throw new Error("Dados não encontrados. Certifique-se de que o pagamento foi processado.");
         }
 
         const { uid, amount, txId } = storageData;
-
+        
+        // --- RESTO DO CÓDIGO DO FIREBASE (igual ao anterior) ---
         const userRef = doc(db, "ai-studio-efc4f2a7-f3c6-4437-8571-4fd30f54f677", uid);
 
         await updateDoc(userRef, {
             saldo: increment(amount),
-            lastTransaction: txId
+            lastTransaction: txId,
+            lastUpdate: new Date().toISOString()
         });
 
-        statusEl.innerText = "Sucesso!";
+        statusEl.innerText = "Sucesso! Saldo creditado.";
+        localStorage.removeItem('dados_pagamento');
+
+        setTimeout(() => {
+            window.location.href = "https://seguidoresexpress.vercel.app/dashbord";
+        }, 1500);
 
     } catch (error) {
-        console.error(error);
-        statusEl.innerText = error.message;
+        console.error("Erro detalhado:", error);
+        statusEl.innerText = "Erro: " + error.message;
     }
 }
 
