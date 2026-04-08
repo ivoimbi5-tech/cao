@@ -10,22 +10,42 @@ import {
   Loader2,
   CheckCircle2
 } from 'lucide-react';
-import { collection, addDoc, doc, updateDoc, increment } from 'firebase/firestore';
+import { collection, addDoc, doc, updateDoc, increment, getDocs, orderBy, query } from 'firebase/firestore';
 import { db } from '../firebase';
 import { useAuth } from '../context/AuthContext';
-import { INITIAL_SERVICES } from '../constants';
 import { Service, Order } from '../types';
 import { cn } from '../lib/utils';
 
 const NewOrder = () => {
   const { profile } = useAuth();
   const navigate = useNavigate();
+  const [services, setServices] = useState<Service[]>([]);
   const [selectedService, setSelectedService] = useState<Service | null>(null);
   const [quantity, setQuantity] = useState<number>(100);
   const [targetUrl, setTargetUrl] = useState('');
   const [loading, setLoading] = useState(false);
+  const [fetchingServices, setFetchingServices] = useState(true);
   const [error, setError] = useState('');
   const [success, setSuccess] = useState(false);
+
+  useEffect(() => {
+    const fetchServices = async () => {
+      try {
+        const servicesRef = collection(db, 'services');
+        const q = query(servicesRef, orderBy('platform', 'asc'));
+        const querySnapshot = await getDocs(q);
+        const fetchedServices = querySnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Service));
+        setServices(fetchedServices);
+      } catch (err) {
+        console.error("Error fetching services:", err);
+        setError("Erro ao carregar serviços. Tente novamente.");
+      } finally {
+        setFetchingServices(false);
+      }
+    };
+
+    fetchServices();
+  }, []);
 
   const totalPrice = selectedService ? selectedService.pricePerUnit * (quantity / 100) : 0;
 
@@ -110,43 +130,49 @@ const NewOrder = () => {
           {/* Service Selection */}
           <div className="space-y-4">
             <label className="text-sm font-bold text-zinc-400 ml-1 uppercase tracking-widest">Selecione o Serviço</label>
-            <div className="grid sm:grid-cols-2 gap-4">
-              {INITIAL_SERVICES.map((service) => (
-                <button
-                  key={service.id}
-                  type="button"
-                  onClick={() => setSelectedService(service)}
-                  className={cn(
-                    "p-5 rounded-2xl border transition-all text-left group relative overflow-hidden",
-                    selectedService?.id === service.id 
-                      ? "bg-emerald-500/10 border-emerald-500/50 ring-1 ring-emerald-500/50" 
-                      : "bg-zinc-800/50 border-white/5 hover:border-zinc-700"
-                  )}
-                >
-                  <div className="flex items-center gap-3 mb-3">
-                    <div className={cn(
-                      "w-8 h-8 rounded-lg flex items-center justify-center",
-                      service.platform === 'Instagram' ? "bg-pink-500/10 text-pink-500" : "bg-emerald-500/10 text-emerald-500"
-                    )}>
-                      {service.platform === 'Instagram' ? <Instagram className="w-4 h-4" /> : <Music2 className="w-4 h-4" />}
+            {fetchingServices ? (
+              <div className="flex items-center justify-center py-10">
+                <Loader2 className="w-8 h-8 animate-spin text-emerald-500" />
+              </div>
+            ) : (
+              <div className="grid sm:grid-cols-2 gap-4">
+                {services.map((service) => (
+                  <button
+                    key={service.id}
+                    type="button"
+                    onClick={() => setSelectedService(service)}
+                    className={cn(
+                      "p-5 rounded-2xl border transition-all text-left group relative overflow-hidden",
+                      selectedService?.id === service.id 
+                        ? "bg-emerald-500/10 border-emerald-500/50 ring-1 ring-emerald-500/50" 
+                        : "bg-zinc-800/50 border-white/5 hover:border-zinc-700"
+                    )}
+                  >
+                    <div className="flex items-center gap-3 mb-3">
+                      <div className={cn(
+                        "w-8 h-8 rounded-lg flex items-center justify-center",
+                        service.platform === 'Instagram' ? "bg-pink-500/10 text-pink-500" : "bg-emerald-500/10 text-emerald-500"
+                      )}>
+                        {service.platform === 'Instagram' ? <Instagram className="w-4 h-4" /> : <Music2 className="w-4 h-4" />}
+                      </div>
+                      <span className="text-xs font-bold text-zinc-500 uppercase tracking-wider">{service.platform}</span>
                     </div>
-                    <span className="text-xs font-bold text-zinc-500 uppercase tracking-wider">{service.platform}</span>
-                  </div>
-                  <h4 className="font-bold text-zinc-100 mb-1">{service.name}</h4>
-                  <p className="text-xs text-zinc-500">
-                    {service.id.includes('follower') 
-                      ? `${service.pricePerUnit} Kz / 100 un` 
-                      : `${service.pricePerUnit / 100} Kz / un`}
-                  </p>
-                  
-                  {selectedService?.id === service.id && (
-                    <div className="absolute top-2 right-2">
-                      <CheckCircle2 className="w-4 h-4 text-emerald-500" />
-                    </div>
-                  )}
-                </button>
-              ))}
-            </div>
+                    <h4 className="font-bold text-zinc-100 mb-1">{service.name}</h4>
+                    <p className="text-xs text-zinc-500">
+                      {service.id.includes('follower') 
+                        ? `${service.pricePerUnit} Kz / 100 un` 
+                        : `${service.pricePerUnit / 100} Kz / un`}
+                    </p>
+                    
+                    {selectedService?.id === service.id && (
+                      <div className="absolute top-2 right-2">
+                        <CheckCircle2 className="w-4 h-4 text-emerald-500" />
+                      </div>
+                    )}
+                  </button>
+                ))}
+              </div>
+            )}
           </div>
 
           {/* Target URL */}

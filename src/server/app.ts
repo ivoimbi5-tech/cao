@@ -1,5 +1,6 @@
 import axios from 'axios';
 import express from "express";
+import cors from "cors";
 import admin from "firebase-admin";
 import { getFirestore, Firestore, FieldValue } from "firebase-admin/firestore";
 import crypto from "crypto";
@@ -11,13 +12,10 @@ import { serviceAccount as fallbackSa } from "./sa";
 
 // Load Firebase Config
 const firebaseConfigPath = path.resolve(process.cwd(), "firebase-applet-config.json");
-const debugLogPath = "/firebase-debug.log";
 
 function debugLog(msg: string, data?: any) {
-  // Silent in production
-  if (process.env.NODE_ENV === 'development') {
-    console.log(`[FirebaseDebug] ${msg}`, data || '');
-  }
+  // Log in production too for debugging "Failed to fetch" issues
+  console.log(`[FirebaseDebug] ${msg}`, data ? JSON.stringify(data) : '');
 }
 
 let firebaseConfig: any = {};
@@ -109,18 +107,16 @@ async function identifyIdentity() {
       debugLog("Current Identity (from ADC):", currentIdentity);
     } else {
       // Try to fetch from metadata server if on Cloud Run
-      // Added timeout to prevent hanging in non-GCP environments like Vercel
+      // Using axios with timeout to prevent hanging
       const metadataUrl = "http://metadata.google.internal/computeMetadata/v1/instance/service-accounts/default/email";
       try {
-        const controller = new AbortController();
-        const timeoutId = setTimeout(() => controller.abort(), 1000);
-        const response = await fetch(metadataUrl, {
+        const response = await axios.get(metadataUrl, {
           headers: { "Metadata-Flavor": "Google" },
-          signal: controller.signal
+          timeout: 1000,
+          validateStatus: () => true
         });
-        clearTimeout(timeoutId);
-        if (response.ok) {
-          currentIdentity = await response.text();
+        if (response.status === 200) {
+          currentIdentity = response.data;
           debugLog("Current Identity (from Metadata):", currentIdentity);
         }
       } catch (mErr) {
@@ -367,12 +363,18 @@ const sanitizeForFirestore = (obj: any): any => {
 };
 
 const app = express();
-console.log("Backend Version: 1.0.5 - Firestore Sanitization Active");
-
-console.log("Environment:", process.env.NODE_ENV);
-console.log("Is Netlify:", !!process.env.NETLIFY);
-
+app.use(cors());
 app.use(express.json());
+
+// Request Logger (Only for API routes)
+app.use((req, res, next) => {
+  if (req.url.startsWith('/api')) {
+    console.log(`[API] ${req.method} ${req.url}`);
+  }
+  next();
+});
+
+console.log("Backend Version: 1.0.6 - CORS and Logging Active");
 
 // API Routes
 
@@ -500,12 +502,11 @@ app.post("/api/orders/create", async (req, res) => {
         params.append('link', targetUrl);
         params.append('quantity', quantity.toString());
 
-        const smmResponse = await fetch(SMM_API_URL, {
-          method: 'POST',
-          body: params
+        const smmResponse = await axios.post(SMM_API_URL, params, {
+          timeout: 10000
         });
 
-        const smmData: any = await smmResponse.json();
+        const smmData = smmResponse.data;
         if (smmData.order) {
           providerOrderId = smmData.order;
         } else if (smmData.error) {

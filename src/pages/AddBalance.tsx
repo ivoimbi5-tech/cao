@@ -27,10 +27,9 @@ const AddBalance = () => {
 
     // Save recharge amount to localStorage
     localStorage.setItem('recharge_amount', numAmount.toString());
-    localStorage.setItem('txId', transactionId);
 
-    // ✅ Redireciona para o HTML dentro da pasta public
-    window.location.href = "/pag.html";
+    // Redirect to the external payment simulation page
+    window.location.href = `/pag.html?txId=${transactionId}`;
   };
 
   const handleWhatsAppSupport = () => {
@@ -43,7 +42,7 @@ const AddBalance = () => {
   return (
     <div className="max-w-2xl mx-auto px-4">
       <div className="bg-zinc-900/50 p-6 sm:p-10 rounded-[40px] border border-white/5 backdrop-blur-xl shadow-2xl relative overflow-hidden">
-        
+        {/* Decorative background */}
         <div className="absolute top-0 right-0 w-64 h-64 bg-emerald-500/5 blur-[100px] -mr-32 -mt-32 pointer-events-none" />
         
         <div className="relative z-10">
@@ -51,20 +50,12 @@ const AddBalance = () => {
             <Wallet className="w-8 h-8 text-emerald-500" />
           </div>
           
-          <h2 className="text-4xl font-black text-white mb-3 tracking-tight">
-            Recarregar <span className="text-emerald-500">Saldo</span>
-          </h2>
-
-          <p className="text-zinc-500 font-bold mb-10 uppercase tracking-[0.2em] text-[11px]">
-            Pagamento Instantâneo via Multicaixa
-          </p>
-
+          <h2 className="text-4xl font-black text-white mb-3 tracking-tight">Recarregar <span className="text-emerald-500">Saldo</span></h2>
+          <p className="text-zinc-500 font-bold mb-10 uppercase tracking-[0.2em] text-[11px]">Pagamento Instantâneo via Multicaixa</p>
+          
           <div className="space-y-8 mb-10">
             <div className="space-y-4">
-              <label className="text-xs font-bold text-zinc-400 uppercase tracking-widest ml-1">
-                Selecione o Valor do Depósito
-              </label>
-
+              <label className="text-xs font-bold text-zinc-400 uppercase tracking-widest ml-1">Selecione o Valor do Depósito</label>
               <div className="grid grid-cols-3 gap-4">
                 {[300, 500, 1000].map((val) => (
                   <button
@@ -79,23 +70,17 @@ const AddBalance = () => {
                         : 'bg-zinc-950/50 border-white/5 text-zinc-500 hover:border-white/10 hover:bg-zinc-900/50'
                     }`}
                   >
-                    <span className={`text-2xl font-black ${
-                      amount === val.toString() ? 'text-emerald-500' : 'text-zinc-300'
-                    }`}>
+                    <span className={`text-2xl font-black ${amount === val.toString() ? 'text-emerald-500' : 'text-zinc-300'}`}>
                       {val}
                     </span>
-                    <span className="text-[10px] font-bold uppercase tracking-widest opacity-60">
-                      Kwanza
-                    </span>
+                    <span className="text-[10px] font-bold uppercase tracking-widest opacity-60">Kwanza</span>
                   </button>
                 ))}
               </div>
-
+              
               {error && (
                 <div className="mt-4 p-4 bg-red-500/10 border border-red-500/20 rounded-2xl">
-                  <p className="text-red-500 text-xs font-bold leading-relaxed">
-                    {error}
-                  </p>
+                  <p className="text-red-500 text-xs font-bold leading-relaxed">{error}</p>
                 </div>
               )}
             </div>
@@ -116,7 +101,7 @@ const AddBalance = () => {
               )}
             </button>
           </div>
-
+          
           <div className="pt-8 border-t border-white/5">
             <button 
               onClick={handleWhatsAppSupport}
@@ -133,21 +118,18 @@ const AddBalance = () => {
               <Zap className="w-4 h-4" />
               Instruções
             </h4>
-
             <ul className="space-y-4">
               <li className="flex gap-4 text-xs text-zinc-400 leading-relaxed">
                 <span className="w-6 h-6 rounded-xl bg-zinc-800 flex items-center justify-center text-[10px] font-bold text-white shrink-0 border border-white/5">1</span>
                 Selecione um dos valores fixos disponíveis (300, 500 ou 1000 Kz).
               </li>
-
               <li className="flex gap-4 text-xs text-zinc-400 leading-relaxed">
                 <span className="w-6 h-6 rounded-xl bg-zinc-800 flex items-center justify-center text-[10px] font-bold text-white shrink-0 border border-white/5">2</span>
                 Clique em "PAGAR AGORA" para processar sua recarga.
               </li>
-
               <li className="flex gap-4 text-xs text-zinc-400 leading-relaxed">
                 <span className="w-6 h-6 rounded-xl bg-zinc-800 flex items-center justify-center text-[10px] font-bold text-white shrink-0 border border-white/5">3</span>
-                O saldo será adicionado automaticamente após a confirmação.
+                O saldo será adicionado automaticamente à sua conta após a confirmação.
               </li>
             </ul>
           </div>

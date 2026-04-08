@@ -103,89 +103,87 @@
 
 <script type="module">
   import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js";
-  import { getFirestore, doc, getDoc, updateDoc, increment } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js";
+  import { getFirestore, doc, getDoc } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js";
 
-  const firebaseConfig = {
-    apiKey: "AIzaSyLJXc8n2XF1cw8X6LP-F6K-2QhyqfPI",
-    authDomain: "gen-lang-client-0626746561.firebaseapp.com",
-    projectId: "gen-lang-client-0626746561",
-    storageBucket: "gen-lang-client-0626746561.firebasestorage.app",
-    messagingSenderId: "748462470771",
-    appId: "1:748462470771:web:bf891cd9884aa481e85c06"
-  };
+  async function iniciar() {
+    try {
+      // 1. Carrega a configuração real do sistema
+      const configRes = await fetch('/firebase-applet-config.json');
+      const firebaseConfig = await configRes.json();
 
-  const app = initializeApp(firebaseConfig);
-  const db = getFirestore(app);
+      const app = initializeApp(firebaseConfig);
+      const db = getFirestore(app, firebaseConfig.firestoreDatabaseId);
 
-  function carregarDados() {
-    const email = localStorage.getItem('email');
-    const user = localStorage.getItem('user');
-    const amount = localStorage.getItem('recharge_amount');
+      const urlParams = new URLSearchParams(window.location.search);
+      const txId = urlParams.get('txId') || 'PAG_' + Date.now();
 
-    document.getElementById('email').innerText = email || 'Não encontrado';
-    document.getElementById('user').innerText = user || 'Não encontrado';
-    document.getElementById('amount').innerText = amount ? amount + ' Kz' : 'Não encontrado';
+      const uid = localStorage.getItem('user');
+      const amount = localStorage.getItem('recharge_amount');
+      const email = localStorage.getItem('email');
 
-    return { email, user, amount };
+      if (!uid || !amount) {
+        document.getElementById('status').innerText = "Erro: Dados de sessão não encontrados.";
+        return;
+      }
+
+      // 2. Busca o nome real do usuário no sistema
+      document.getElementById('email').innerText = email || '...';
+      document.getElementById('amount').innerText = amount + ' Kz';
+      
+      const userRef = doc(db, "users", uid);
+      const userSnap = await getDoc(userRef);
+      
+      if (userSnap.exists()) {
+        const userData = userSnap.data();
+        document.getElementById('user').innerText = userData.displayName || userData.name || uid;
+      } else {
+        document.getElementById('user').innerText = uid;
+      }
+
+      // 3. Processa o pagamento após um pequeno delay visual
+      setTimeout(() => {
+        confirmarPagamento(uid, amount, txId);
+      }, 3000);
+
+    } catch (err) {
+      console.error("Erro ao iniciar:", err);
+      document.getElementById('status').innerText = "Erro ao conectar com o sistema.";
+    }
   }
 
-  async function confirmarPagamento() {
-    const { email, amount } = carregarDados();
-
-    if (!email || !amount) {
-      document.getElementById('status').innerText = "Dados inválidos.";
-      return;
-    }
-
+  async function confirmarPagamento(uid, amount, txId) {
     try {
-      // ⚠️ FORÇA conexão online
-      const userRef = doc(db, "ai-studio-efc4f2a7-f3c6-4437-8571-4fd30f54f677", email);
+      document.getElementById('status').innerText = "Comunicando com o servidor...";
 
-      let userSnap;
-
-      try {
-        userSnap = await getDoc(userRef);
-      } catch (err) {
-        console.error("Erro de conexão Firebase:", err);
-        document.getElementById('status').innerText = "Erro de conexão com o Firebase.";
-        return;
-      }
-
-      if (!userSnap.exists()) {
-        document.getElementById('status').innerText = "Usuário não encontrado.";
-        return;
-      }
-
-      const valor = Number(amount);
-
-      // Atualiza saldo
-      await updateDoc(userRef, {
-        saldo: increment(valor)
+      const response = await fetch('/api/payments/simulate-success', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          userId: uid,
+          amount: Number(amount),
+          transactionId: txId
+        }),
       });
 
-      // Remove do localStorage
-      localStorage.removeItem('recharge_amount');
+      const data = await response.json();
 
-      document.getElementById('status').innerText = "Pagamento confirmado! Redirecionando...";
-
-      setTimeout(() => {
-        window.location.href = "https://seguidoresexpress.vercel.app/dashboard";
-      }, 1500);
-
+      if (response.ok && data.success) {
+        localStorage.removeItem('recharge_amount');
+        document.getElementById('status').innerText = "Pagamento confirmado com sucesso! Redirecionando...";
+        setTimeout(() => {
+          window.location.href = "/dashboard?payment=success";
+        }, 2000);
+      } else {
+        document.getElementById('status').innerText = "Erro no servidor: " + (data.error || "Falha ao processar");
+      }
     } catch (error) {
-      console.error("Erro geral:", error);
-      document.getElementById('status').innerText = "Erro ao processar pagamento.";
+      document.getElementById('status').innerText = "Erro de conexão com o servidor.";
     }
   }
 
-  // Carregar dados
-  carregarDados();
-
-  // Pequeno delay
-  setTimeout(() => {
-    confirmarPagamento();
-  }, 3000);
-
+  iniciar();
 </script>
 
 </body>
