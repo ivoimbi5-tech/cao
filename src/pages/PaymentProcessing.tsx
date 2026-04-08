@@ -9,12 +9,20 @@ const PaymentProcessing = () => {
   const navigate = useNavigate();
   const { profile } = useAuth();
   const [status, setStatus] = useState<'processing' | 'success'>('processing');
-  const amount = searchParams.get('amount');
-  const txId = searchParams.get('txId');
   const processedRef = useRef(false);
 
+  const txId = searchParams.get('txId');
+
   useEffect(() => {
-    if (!profile || !amount) {
+    // 🔥 Buscar dados do localStorage
+    const storedUser = localStorage.getItem('user');
+    const storedEmail = localStorage.getItem('email');
+    const storedAmount = localStorage.getItem('recharge_amount');
+
+    const numericAmount = Number(storedAmount);
+
+    // ✅ Validação
+    if (!profile || !storedUser || !storedEmail || !numericAmount) {
       navigate('/dashboard/add-balance');
       return;
     }
@@ -24,53 +32,46 @@ const PaymentProcessing = () => {
 
     const processPayment = async () => {
       try {
-        // Wait 3 seconds as requested
+        // Simular delay
         await new Promise(resolve => setTimeout(resolve, 3000));
 
-        // Call backend to update balance
         const response = await fetch('/api/payments/simulate-success', {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json',
           },
           body: JSON.stringify({
-            userId: profile.uid,
-            amount: Number(amount),
+            user: storedUser,
+            email: storedEmail,
+            amount: numericAmount,
             transactionId: txId
           }),
         });
 
         if (response.ok) {
           setStatus('success');
-          // Wait 2 more seconds to show success message before redirecting
+
+          // 🧹 Limpar localStorage
+          localStorage.removeItem('recharge_amount');
+
           setTimeout(() => {
             navigate('/dashboard?payment=success');
           }, 2000);
         } else {
-          let errorMsg = 'simulation_failed';
-          try {
-            const text = await response.text();
-            try {
-              const errorData = JSON.parse(text);
-              console.error('Failed to process simulated payment (JSON):', errorData);
-              errorMsg = errorData.message || errorData.error || 'simulation_failed';
-            } catch (e) {
-              console.error('Failed to process simulated payment (HTML/Text):', text);
-              errorMsg = 'server_error_check_logs';
-            }
-          } catch (e) {
-            console.error('Failed to read error response');
-          }
-          navigate(`/dashboard/add-balance?error=${encodeURIComponent(errorMsg)}`);
+          navigate('/dashboard/add-balance?error=simulation_failed');
         }
       } catch (error) {
-        console.error('Error processing payment:', error);
+        console.error('Erro no pagamento:', error);
         navigate('/dashboard/add-balance?error=internal_error');
       }
     };
 
     processPayment();
-  }, [profile, amount, navigate]);
+  }, [profile, navigate, txId]);
+
+  // 🔥 Buscar novamente para mostrar na tela
+  const storedAmount = localStorage.getItem('recharge_amount');
+  const storedEmail = localStorage.getItem('email');
 
   return (
     <div className="min-h-screen bg-[#050505] flex items-center justify-center p-6">
@@ -89,11 +90,23 @@ const PaymentProcessing = () => {
             <div className="w-20 h-20 bg-emerald-500/10 rounded-3xl flex items-center justify-center mb-8 mx-auto border border-emerald-500/20">
               <Loader2 className="w-10 h-10 text-emerald-500 animate-spin" />
             </div>
-            <h2 className="text-3xl font-black text-white mb-4 tracking-tight">Processando <span className="text-emerald-500">Pagamento</span></h2>
-            <p className="text-zinc-400 mb-6">Aguarde um momento enquanto confirmamos sua recarga de:</p>
+
+            <h2 className="text-3xl font-black text-white mb-4 tracking-tight">
+              Processando <span className="text-emerald-500">Pagamento</span>
+            </h2>
+
+            <p className="text-zinc-400 mb-2">
+              Conta: <span className="text-white">{storedEmail}</span>
+            </p>
+
+            <p className="text-zinc-400 mb-6">
+              Aguarde enquanto confirmamos sua recarga:
+            </p>
+
             <div className="text-4xl font-black text-white mb-8">
-              {Number(amount).toLocaleString('pt-AO')} <span className="text-emerald-500">Kz</span>
+              {Number(storedAmount).toLocaleString('pt-AO')} <span className="text-emerald-500">Kz</span>
             </div>
+
             <div className="flex items-center justify-center gap-2 text-zinc-500 text-sm font-bold uppercase tracking-widest">
               <Zap className="w-4 h-4 text-emerald-500" />
               Seguro & Instantâneo
@@ -108,10 +121,17 @@ const PaymentProcessing = () => {
             >
               <CheckCircle2 className="w-10 h-10 text-black" />
             </motion.div>
-            <h2 className="text-3xl font-black text-white mb-4 tracking-tight">Carregamento <span className="text-emerald-500">Feito!</span></h2>
-            <p className="text-zinc-400 mb-8">Seu saldo foi atualizado com sucesso. Redirecionando...</p>
+
+            <h2 className="text-3xl font-black text-white mb-4 tracking-tight">
+              Carregamento <span className="text-emerald-500">Feito!</span>
+            </h2>
+
+            <p className="text-zinc-400 mb-8">
+              Seu saldo foi atualizado com sucesso. Redirecionando...
+            </p>
+
             <div className="text-2xl font-black text-emerald-500">
-              + {Number(amount).toLocaleString('pt-AO')} Kz
+              + {Number(storedAmount).toLocaleString('pt-AO')} Kz
             </div>
           </>
         )}
