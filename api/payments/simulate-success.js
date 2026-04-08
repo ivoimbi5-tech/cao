@@ -49,11 +49,13 @@ export default async function handler(req, res) {
 
     return res.status(200).json({ success: true });
 
-  } catch (error) {
-    console.error("❌ ERRO INTERNO:", error);
-    return res.status(500).json({
-      error: "Erro interno",
-      details: error.message
-    });
-  }
+catch (error) {
+  console.error("❌ ERRO COMPLETO:", error);
+
+  return res.status(500).json({
+    error: "Erro interno",
+    message: error.message,
+    stack: error.stack
+  });
+}
 }
