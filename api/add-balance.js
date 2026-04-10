@@ -1,49 +1,38 @@
-import { initializeApp, cert } from "firebase-admin/app";
 import { getFirestore, FieldValue } from "firebase-admin/firestore";
 
-// 🔥 evita reinicializar várias vezes (IMPORTANTE no Vercel)
-let app;
-
-if (!global._firebaseApp) {
-  global._firebaseApp = initializeApp({
-    credential: cert({
-      projectId: "gen-lang-client-0626746561",
-      clientEmail: "firebase-adminsdk-fbsvc@gen-lang-client-0626746561.iam.gserviceaccount.com",
-      privateKey: process.env.FIREBASE_PRIVATE_KEY.replace(/\\n/g, '\n')
-    })
-  });
-}
-
-app = global._firebaseApp;
-const db = getFirestore(app);
+const db = getFirestore();
 
 export default async function handler(req, res) {
   try {
-    // 🔥 FORÇA parse do body
-    const body = typeof req.body === "string" ? JSON.parse(req.body) : req.body;
-
-    console.log("BODY RECEBIDO:", body);
-
-    const { uid, amount, txId } = body;
+    const { uid, amount, txId } = req.body;
 
     if (!uid || !amount) {
-      return res.status(400).json({ error: "Dados inválidos" });
+      return res.status(400).json({ error: "Missing data" });
     }
 
     const userRef = db.collection("users").doc(uid);
 
-    await userRef.set({
+    const doc = await userRef.get();
+
+    if (!doc.exists) {
+      return res.status(404).json({ error: "User not found" });
+    }
+
+    await userRef.update({
       balance: FieldValue.increment(Number(amount)),
-      ultimaTransacao: txId || "api",
-      dataSincronizacao: new Date().toISOString()
-    }, { merge: true });
+      lastTx: txId || null,
+      updatedAt: new Date().toISOString()
+    });
 
-    console.log("SALDO ATUALIZADO:", uid, amount);
+    const updated = await userRef.get();
 
-    return res.status(200).json({ success: true });
+    return res.status(200).json({
+      success: true,
+      newBalance: updated.data().balance
+    });
 
-  } catch (error) {
-    console.error("ERRO API:", error);
-    return res.status(500).json({ error: error.message });
+  } catch (err) {
+    console.error(err);
+    return res.status(500).json({ error: err.message });
   }
 }
