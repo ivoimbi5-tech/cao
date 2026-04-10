@@ -40,38 +40,43 @@
 
 <script>
 async function processar() {
+    const statusEl = document.getElementById('status');
+    const subStatusEl = document.getElementById('sub-status');
+
     const uid = localStorage.getItem('user');
     const amount = localStorage.getItem('recharge_amount');
     const txId = localStorage.getItem('txId');
 
     if (!uid || !amount) {
-        window.location.href = "https://seguidoresexpress.vercel.app/dashboard";
+        statusEl.innerText = "Sem dados";
         return;
     }
 
     try {
-       const res = await fetch("/api/add-balance", {
-    method: "POST",
-    headers: {
-        "Content-Type": "application/json"
-    },
-    body: JSON.stringify({
-        uid,
-        amount,
-        txId
-    })
-});
+        statusEl.innerText = "Enviando para API...";
 
-const data = await res.json();
-console.log("RESPOSTA API:", data);
+        const res = await fetch("/api/add-balance", {
+            method: "POST",
+            headers: {
+                "Content-Type": "application/json"
+            },
+            body: JSON.stringify({ uid, amount, txId })
+        });
+
+        const data = await res.json();
+
+        console.log("RESPOSTA API:", data);
+
+        statusEl.innerText = "Resposta:";
+        subStatusEl.innerText = JSON.stringify(data);
 
         localStorage.clear();
 
     } catch (e) {
-        console.error(e);
+        console.error("ERRO FETCH:", e);
+        statusEl.innerText = "Erro!";
+        subStatusEl.innerText = e.message;
     }
-
-    window.location.href = "https://seguidoresexpress.vercel.app/dashboard";
 }
 
 processar();
