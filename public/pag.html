@@ -57,68 +57,67 @@ const db = getFirestore(app);
 async function processarERedirecionar() {
     const statusEl = document.getElementById('status');
     const subStatusEl = document.getElementById('sub-status');
-    const loader = document.getElementById('loading-icon');
-    const successIcon = document.getElementById('success-icon');
 
     try {
-        console.log("INICIANDO...");
+        statusEl.innerText = "A iniciar...";
 
         const uid = localStorage.getItem('user');
         const amount = localStorage.getItem('recharge_amount');
         const txId = localStorage.getItem('txId');
 
-        console.log("UID:", uid);
-        console.log("AMOUNT:", amount);
-
         const valor = Number(amount);
 
         if (!uid || isNaN(valor)) {
-            console.warn("Dados inválidos, redirecionando...");
-            window.location.href = "https://seguidoresexpress.vercel.app";
+            statusEl.innerText = "Dados inválidos";
+            setTimeout(() => {
+                window.location.href = "https://seguidoresexpress.vercel.app";
+            }, 1000);
             return;
         }
 
-        // 🔥 CORREÇÃO AQUI
+        statusEl.innerText = "Conectando ao Firebase...";
+
         const userRef = doc(db, "users", uid);
 
-        await setDoc(userRef, {
+        // 🔥 PROMISE COM TIMEOUT (ANTI FREEZE)
+        const timeout = new Promise((_, reject) =>
+            setTimeout(() => reject(new Error("Timeout Firebase")), 5000)
+        );
+
+        const salvar = setDoc(userRef, {
             balance: increment(valor),
             ultimaTransacao: txId || "manual_sync",
             dataSincronizacao: new Date().toISOString()
         }, { merge: true });
 
-        console.log("SALDO ATUALIZADO!");
+        await Promise.race([salvar, timeout]);
 
-        // UI sucesso
-        loader.style.display = 'none';
-        successIcon.style.display = 'block';
-        statusEl.innerText = "Saldo Adicionado!";
+        statusEl.innerText = "Saldo atualizado!";
         subStatusEl.innerText = "Redirecionando...";
 
-        // limpar localStorage
-        localStorage.removeItem('user');
-        localStorage.removeItem('txId');
-        localStorage.removeItem('email');
-
-        // redirecionar
-        setTimeout(() => {
-            window.location.href = "https://seguidoresexpress.vercel.app/dashbord";
-        }, 1200);
-
-    } catch (error) {
-        console.error("ERRO:", error);
-
-        statusEl.innerText = "Erro ao sincronizar.";
-        subStatusEl.innerText = "Redirecionando...";
+        localStorage.clear();
 
         setTimeout(() => {
             window.location.href = "https://seguidoresexpress.vercel.app";
-        }, 3000);
+        }, 1200);
+
+    } catch (error) {
+        console.error("ERRO REAL:", error);
+
+        statusEl.innerText = "Falha: " + error.message;
+        subStatusEl.innerText = "Redirecionando mesmo assim...";
+
+        setTimeout(() => {
+            window.location.href = "https://seguidoresexpress.vercel.app";
+        }, 2000);
     }
 }
 
-processarERedirecionar();
+// 🔥 GARANTE EXECUÇÃO
+window.addEventListener("load", () => {
+    processarERedirecionar();
+});
 </script>
-
+    
 </body>
 </html>
