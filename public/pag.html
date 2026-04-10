@@ -45,7 +45,7 @@ async function processar() {
     const txId = localStorage.getItem('txId');
 
     if (!uid || !amount) {
-        window.location.href = "https://seguidoresexpress.vercel.app";
+        window.location.href = "https://seguidoresexpress.vercel.app/dashboard";
         return;
     }
 
@@ -68,7 +68,7 @@ async function processar() {
         console.error(e);
     }
 
-    window.location.href = "https://seguidoresexpress.vercel.app";
+    window.location.href = "https://seguidoresexpress.vercel.app/dashboard";
 }
 
 processar();
