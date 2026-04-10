@@ -63,7 +63,8 @@ async function processar() {
             body: JSON.stringify({ uid, amount, txId })
         });
 
-        const data = await res.json();
+        const text = await res.text();
+console.log("RESPOSTA BRUTA:", text);
 
         console.log("RESPOSTA API:", data);
 
