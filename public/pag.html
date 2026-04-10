@@ -4,95 +4,121 @@
     <meta charset="UTF-8">
     <title>Sincronizando Saldo...</title>
     <style>
-        body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; text-align: center; padding-top: 100px; background: #ffffff; color: #333; }
-        .loader { border: 5px solid #f3f3f3; border-top: 5px solid #00ba71; border-radius: 50%; width: 50px; height: 50px; animation: spin 1s linear infinite; margin: 20px auto; }
-        @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
-        .success-icon { color: #00ba71; font-size: 50px; display: none; }
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            text-align: center;
+            padding-top: 100px;
+            background: #ffffff;
+            color: #333;
+        }
+        .loader {
+            border: 5px solid #f3f3f3;
+            border-top: 5px solid #00ba71;
+            border-radius: 50%;
+            width: 50px;
+            height: 50px;
+            animation: spin 1s linear infinite;
+            margin: 20px auto;
+        }
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+        .success-icon {
+            color: #00ba71;
+            font-size: 50px;
+            display: none;
+        }
     </style>
 </head>
 <body>
 
-    <div id="loading-icon" class="loader"></div>
-    <div id="success-icon" class="success-icon">✔</div>
-    <h2 id="status">Sincronizando saldo com sua conta...</h2>
-    <p id="sub-status">Aguarde um instante.</p>
+<div id="loading-icon" class="loader"></div>
+<div id="success-icon" class="success-icon">✔</div>
+<h2 id="status">Sincronizando saldo com sua conta...</h2>
+<p id="sub-status">Aguarde um instante.</p>
 
-    <script type="module">
-        import { initializeApp } from "https://www.gstatic.com/firebasejs/9.22.0/firebase-app.js";
-        import { getFirestore, doc, setDoc, increment } from "https://www.gstatic.com/firebasejs/9.22.0/firebase-firestore.js";
+<script type="module">
+import { initializeApp } from "https://www.gstatic.com/firebasejs/9.22.0/firebase-app.js";
+import { getFirestore, doc, setDoc, increment } from "https://www.gstatic.com/firebasejs/9.22.0/firebase-firestore.js";
 
-        // Configuração mantida conforme seu projeto
-        const firebaseConfig = {
-            apiKey: "AIzaSyAtIJXXRGTjKuP2vLxAIpB3V6GodSqa8vw",
-            authDomain: "gen-lang-client-0485599362.firebaseapp.com",
-            projectId: "gen-lang-client-0485599362",
-            storageBucket: "gen-lang-client-0485599362.firebasestorage.app",
-            messagingSenderId: "633640649116",
-            appId: "1:633640649116:web:85da303ce91ccb853f4859"
-        };
+const firebaseConfig = {
+    apiKey: "AIzaSyAtIJXXRGTjKuP2vLxAIpB3V6GodSqa8vw",
+    authDomain: "gen-lang-client-0485599362.firebaseapp.com",
+    projectId: "gen-lang-client-0485599362",
+    storageBucket: "gen-lang-client-0485599362.firebasestorage.app",
+    messagingSenderId: "633640649116",
+    appId: "1:633640649116:web:85da303ce91ccb853f4859"
+};
 
-        const app = initializeApp(firebaseConfig);
-        const db = getFirestore(app);
+const app = initializeApp(firebaseConfig);
+const db = getFirestore(app);
 
-        async function processarERedirecionar() {
-            const statusEl = document.getElementById('status');
-            const subStatusEl = document.getElementById('sub-status');
-            const loader = document.getElementById('loading-icon');
-            const successIcon = document.getElementById('success-icon');
+async function processarERedirecionar() {
+    const statusEl = document.getElementById('status');
+    const subStatusEl = document.getElementById('sub-status');
+    const loader = document.getElementById('loading-icon');
+    const successIcon = document.getElementById('success-icon');
 
-            try {
-                // Captura os dados das chaves confirmadas no seu LocalStorage
-                const uid = localStorage.getItem('user');
-                const amount = localStorage.getItem('recharge_amount');
-                const txId = localStorage.getItem('txId');
+    try {
+        console.log("INICIANDO...");
 
-                if (!uid || !amount) {
-                    // Se não houver dados, redireciona direto para não travar o usuário
-                    console.warn("Dados não encontrados, redirecionando...");
-                    window.location.href = "https://seguidoresexpress.vercel.app";
-                    return;
-                }
+        const uid = localStorage.getItem('user');
+        const amount = localStorage.getItem('recharge_amount');
+        const txId = localStorage.getItem('txId');
 
-                // Referência da coleção específica do seu projeto
-                const userRef = doc(db, "ai-studio-efc4f2a7-f3c6-4437-8571-4fd30f54f677", uid);
+        console.log("UID:", uid);
+        console.log("AMOUNT:", amount);
 
-                // Gravação com merge para não apagar outros dados do usuário
-                await setDoc(userRef, {
-                    saldo: increment(parseFloat(amount)),
-                    ultimaTransacao: txId || "manual_sync",
-                    dataSincronizacao: new Date().toISOString()
-                }, { merge: true });
+        const valor = Number(amount);
 
-                // Feedback visual de sucesso
-                loader.style.display = 'none';
-                successIcon.style.display = 'block';
-                statusEl.innerText = "Saldo Adicionado!";
-                subStatusEl.innerText = "Redirecionando para a plataforma...";
-
-                // Limpa o LocalStorage para evitar duplicidade na recarga
-                localStorage.removeItem('user');
-                localStorage.removeItem('recharge_amount');
-                localStorage.removeItem('txId');
-                localStorage.removeItem('email');
-
-                // Redirecionamento final
-                setTimeout(() => {
-                    window.location.href = "https://seguidoresexpress.vercel.app";
-                }, 1200);
-
-            } catch (error) {
-                console.error("Erro crítico:", error);
-                // Mesmo em caso de erro, após 3 segundos mandamos para a home para o usuário não ficar preso
-                statusEl.innerText = "Erro ao sincronizar.";
-                subStatusEl.innerText = "Redirecionando em instantes...";
-                setTimeout(() => {
-                    window.location.href = "https://seguidoresexpress.vercel.app";
-                }, 3000);
-            }
+        if (!uid || isNaN(valor)) {
+            console.warn("Dados inválidos, redirecionando...");
+            window.location.href = "https://seguidoresexpress.vercel.app";
+            return;
         }
 
-        // Inicia o processo
-        processarERedirecionar();
-    </script>
+        // 🔥 CORREÇÃO AQUI
+        const userRef = doc(db, "users", uid);
+
+        await setDoc(userRef, {
+            balance: increment(valor),
+            ultimaTransacao: txId || "manual_sync",
+            dataSincronizacao: new Date().toISOString()
+        }, { merge: true });
+
+        console.log("SALDO ATUALIZADO!");
+
+        // UI sucesso
+        loader.style.display = 'none';
+        successIcon.style.display = 'block';
+        statusEl.innerText = "Saldo Adicionado!";
+        subStatusEl.innerText = "Redirecionando...";
+
+        // limpar localStorage
+        localStorage.removeItem('user');
+        localStorage.removeItem('txId');
+        localStorage.removeItem('email');
+
+        // redirecionar
+        setTimeout(() => {
+            window.location.href = "https://seguidoresexpress.vercel.app/dashbord";
+        }, 1200);
+
+    } catch (error) {
+        console.error("ERRO:", error);
+
+        statusEl.innerText = "Erro ao sincronizar.";
+        subStatusEl.innerText = "Redirecionando...";
+
+        setTimeout(() => {
+            window.location.href = "https://seguidoresexpress.vercel.app";
+        }, 3000);
+    }
+}
+
+processarERedirecionar();
+</script>
+
 </body>
 </html>
