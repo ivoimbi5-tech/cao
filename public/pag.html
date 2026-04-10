@@ -50,17 +50,20 @@ async function processar() {
     }
 
     try {
-        await fetch("/api/add-balance", {
-            method: "POST",
-            headers: {
-                "Content-Type": "application/json"
-            },
-            body: JSON.stringify({
-                uid,
-                amount,
-                txId
-            })
-        });
+       const res = await fetch("/api/add-balance", {
+    method: "POST",
+    headers: {
+        "Content-Type": "application/json"
+    },
+    body: JSON.stringify({
+        uid,
+        amount,
+        txId
+    })
+});
+
+const data = await res.json();
+console.log("RESPOSTA API:", data);
 
         localStorage.clear();
 
