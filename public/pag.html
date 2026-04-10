@@ -38,85 +38,40 @@
 <h2 id="status">Sincronizando saldo com sua conta...</h2>
 <p id="sub-status">Aguarde um instante.</p>
 
-<script type="module">
-import { initializeApp } from "https://www.gstatic.com/firebasejs/9.22.0/firebase-app.js";
-import { getFirestore, doc, setDoc, increment } from "https://www.gstatic.com/firebasejs/9.22.0/firebase-firestore.js";
+<script>
+async function processar() {
+    const uid = localStorage.getItem('user');
+    const amount = localStorage.getItem('recharge_amount');
+    const txId = localStorage.getItem('txId');
 
-const firebaseConfig = {
-    apiKey: "AIzaSyAtIJXXRGTjKuP2vLxAIpB3V6GodSqa8vw",
-    authDomain: "gen-lang-client-0485599362.firebaseapp.com",
-    projectId: "gen-lang-client-0485599362",
-    storageBucket: "gen-lang-client-0485599362.firebasestorage.app",
-    messagingSenderId: "633640649116",
-    appId: "1:633640649116:web:85da303ce91ccb853f4859"
-};
-
-const app = initializeApp(firebaseConfig);
-const db = getFirestore(app);
-
-async function processarERedirecionar() {
-    const statusEl = document.getElementById('status');
-    const subStatusEl = document.getElementById('sub-status');
+    if (!uid || !amount) {
+        window.location.href = "https://seguidoresexpress.vercel.app";
+        return;
+    }
 
     try {
-        statusEl.innerText = "A iniciar...";
-
-        const uid = localStorage.getItem('user');
-        const amount = localStorage.getItem('recharge_amount');
-        const txId = localStorage.getItem('txId');
-
-        const valor = Number(amount);
-
-        if (!uid || isNaN(valor)) {
-            statusEl.innerText = "Dados inválidos";
-            setTimeout(() => {
-                window.location.href = "https://seguidoresexpress.vercel.app";
-            }, 1000);
-            return;
-        }
-
-        statusEl.innerText = "Conectando ao Firebase...";
-
-        const userRef = doc(db, "users", uid);
-
-        // 🔥 PROMISE COM TIMEOUT (ANTI FREEZE)
-        const timeout = new Promise((_, reject) =>
-            setTimeout(() => reject(new Error("Timeout Firebase")), 5000)
-        );
-
-        const salvar = setDoc(userRef, {
-            balance: increment(valor),
-            ultimaTransacao: txId || "manual_sync",
-            dataSincronizacao: new Date().toISOString()
-        }, { merge: true });
-
-        await Promise.race([salvar, timeout]);
-
-        statusEl.innerText = "Saldo atualizado!";
-        subStatusEl.innerText = "Redirecionando...";
+        await fetch("/api/add-balance", {
+            method: "POST",
+            headers: {
+                "Content-Type": "application/json"
+            },
+            body: JSON.stringify({
+                uid,
+                amount,
+                txId
+            })
+        });
 
         localStorage.clear();
 
-        setTimeout(() => {
-            window.location.href = "https://seguidoresexpress.vercel.app/dashboard";
-        }, 1200);
-
-    } catch (error) {
-        console.error("ERRO REAL:", error);
-
-        statusEl.innerText = "Falha: " + error.message;
-        subStatusEl.innerText = "Redirecionando mesmo assim...";
-
-        setTimeout(() => {
-            window.location.href = "https://seguidoresexpress.vercel.app/dashboard";
-        }, 2000);
+    } catch (e) {
+        console.error(e);
     }
+
+    window.location.href = "https://seguidoresexpress.vercel.app";
 }
 
-// 🔥 GARANTE EXECUÇÃO
-window.addEventListener("load", () => {
-    processarERedirecionar();
-});
+processar();
 </script>
     
 </body>
