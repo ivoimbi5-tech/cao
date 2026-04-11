@@ -29,7 +29,22 @@ const AddBalance = () => {
     localStorage.setItem('recharge_amount', numAmount.toString());
 
     // Redirect to the external payment simulation page
-    window.location.href = `/pag.html?txId=${transactionId}`;
+    let paymentUrl = '';
+
+if (numAmount === 300) {
+  paymentUrl = 'https://pay.clickpayon.com/357aa704-8209-4445-90a9-16185409ea6b';
+} else if (numAmount === 500) {
+  paymentUrl = 'https://pay.clickpayon.com/edbd1003-32c3-4fc1-8be3-c5fdfecb3864';
+} else if (numAmount === 1000) {
+  paymentUrl = 'https://pay.clickpayon.com/42f62615-1c35-4958-a491-c71a20235bde';
+} else {
+  setError('Valor inválido para pagamento.');
+  setLoading(false);
+  return;
+}
+
+// Redireciona para o pagamento real
+window.location.href = paymentUrl;
   };
 
   const handleWhatsAppSupport = () => {
