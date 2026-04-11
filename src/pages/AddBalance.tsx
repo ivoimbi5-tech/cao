@@ -50,7 +50,7 @@ window.location.href = paymentUrl;
   const handleWhatsAppSupport = () => {
     if (!profile) return;
     const message = `Olá! Preciso de ajuda com uma recarga de saldo.%0A%0A*Detalhes:*%0A- Cliente: ${profile.displayName || profile.email}%0A- ID: ${profile.uid}`;
-    const whatsappUrl = `https://wa.me/244951061345?text=${message}`;
+    const whatsappUrl = `https://wa.me/244957061345?text=${message}`;
     window.open(whatsappUrl, '_blank');
   };
 
