@@ -1,252 +1,156 @@
+
 <!DOCTYPE html>
-<html lang="pt">
+<html lang="pt-br">
 <head>
-  <meta charset="UTF-8">
-  <title>Processando Pagamento</title>
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <style>
-    * {
-      margin: 0;
-      padding: 0;
-      box-sizing: border-box;
-      font-family: Arial, sans-serif;
-    }
+<meta charset="UTF-8">
+<title>Processando Pagamento...</title>
 
-    body {
-      background: radial-gradient(circle at top, #0f172a, #000);
-      color: #fff;
-      height: 100vh;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-    }
+<style>
+body {
+    margin: 0;
+    font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+    background: linear-gradient(135deg, #0f172a, #1e293b);
+    color: #fff;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    height: 100vh;
+}
 
-    .card {
-      width: 100%;
-      max-width: 420px;
-      padding: 30px;
-      border-radius: 30px;
-      background: rgba(17, 17, 17, 0.6);
-      backdrop-filter: blur(20px);
-      border: 1px solid rgba(255,255,255,0.05);
-      box-shadow: 0 0 40px rgba(0,0,0,0.6);
-      text-align: center;
-      position: relative;
-      overflow: hidden;
-    }
+.card {
+    background: rgba(255,255,255,0.05);
+    padding: 30px;
+    border-radius: 20px;
+    text-align: center;
+    width: 90%;
+    max-width: 420px;
+    box-shadow: 0 10px 40px rgba(0,0,0,0.4);
+    backdrop-filter: blur(10px);
+}
 
-    .loader {
-      border: 5px solid rgba(255,255,255,0.1);
-      border-top: 5px solid #10b981;
-      border-radius: 50%;
-      width: 50px;
-      height: 50px;
-      margin: 20px auto;
-      animation: spin 1s linear infinite;
-    }
+.loader {
+    border: 4px solid rgba(255,255,255,0.2);
+    border-top: 4px solid #00ff99;
+    border-radius: 50%;
+    width: 55px;
+    height: 55px;
+    animation: spin 1s linear infinite;
+    margin: 0 auto 20px;
+}
 
-    @keyframes spin {
-      0% { transform: rotate(0deg); }
-      100% { transform: rotate(360deg); }
-    }
+@keyframes spin {
+    0% { transform: rotate(0deg); }
+    100% { transform: rotate(360deg); }
+}
 
-    .info {
-      margin-top: 20px;
-      text-align: left;
-      font-size: 14px;
-      color: #ccc;
-    }
+h2 {
+    margin-bottom: 10px;
+}
 
-    .box {
-      margin-top: 10px;
-      background: rgba(255,255,255,0.03);
-      padding: 10px;
-      border-radius: 12px;
-      border: 1px solid rgba(255,255,255,0.05);
-      color: #fff;
-      font-weight: bold;
-    }
+.success {
+    color: #00ff99;
+    font-size: 18px;
+    margin-top: 10px;
+}
 
-    .status {
-      margin-top: 15px;
-      color: #10b981;
-      font-weight: bold;
-      font-size: 14px;
-    }
-    .btn {
-      display: block;
-      width: 100%;
-      padding: 15px;
-      margin-top: 20px;
-      border-radius: 15px;
-      border: none;
-      font-weight: bold;
-      cursor: pointer;
-      transition: all 0.3s;
-      text-decoration: none;
-      text-align: center;
-    }
+.hidden {
+    display: none;
+}
 
-    .btn-pay {
-      background: #10b981;
-      color: #000;
-    }
-
-    .btn-pay:hover {
-      background: #059669;
-    }
-
-    .btn-confirm {
-      background: rgba(255,255,255,0.1);
-      color: #fff;
-      border: 1px solid rgba(255,255,255,0.1);
-      display: none;
-    }
-
-    .btn-confirm:hover {
-      background: rgba(255,255,255,0.2);
-    }
-  </style>
+.badge {
+    display: inline-block;
+    padding: 8px 12px;
+    background: #00ff99;
+    color: #000;
+    border-radius: 12px;
+    font-weight: bold;
+    margin-top: 10px;
+}
+</style>
 </head>
 
 <body>
 
 <div class="card">
-  <h2 id="title">Pagamento via ClickPayon</h2>
+    <div id="loading-icon" class="loader"></div>
 
-  <div class="loader" id="loader"></div>
+    <h2 id="status">Sincronizando saldo...</h2>
+    <p id="sub-status">Aguarde um instante</p>
 
-  <div class="status" id="status">Aguarde, preparando seu link...</div>
-
-  <div class="info">
-    Email:
-    <div class="box" id="email">...</div>
-  </div>
-
-  <div class="info">
-    Usuário:
-    <div class="box" id="user">...</div>
-  </div>
-
-  <div class="info">
-    Valor:
-    <div class="box" id="amount">...</div>
-  </div>
-
-  <a href="#" id="pay-link" class="btn btn-pay" style="display: none;" target="_blank">PAGAR AGORA</a>
-  <button id="confirm-btn" class="btn btn-confirm">JÁ REALIZEI O PAGAMENTO</button>
+    <div id="success-box" class="hidden">
+        <div class="badge" id="name">Usuário</div>
+        <h3 class="success">Saldo adicionado com sucesso!</h3>
+        <p id="added">+0 KZ</p>
+    </div>
 </div>
 
-<script type="module">
-  import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js";
-  import { getFirestore, doc, getDoc } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js";
+<script>
+async function processar() {
+    const statusEl = document.getElementById('status');
+    const subStatusEl = document.getElementById('sub-status');
+    const loader = document.getElementById('loading-icon');
 
-  const PAYMENT_LINKS = {
-    '300': 'https://pay.clickpayon.com/357aa704-8209-4445-90a9-16185409ea6b',
-    '500': 'https://pay.clickpayon.com/edbd1003-32c3-4fc1-8be3-c5fdfecb3864',
-    '1000': 'https://pay.clickpayon.com/42f62615-1c35-4958-a491-c71a20235bde'
-  };
+    const successBox = document.getElementById('success-box');
+    const nameEl = document.getElementById('name');
+    const addedEl = document.getElementById('added');
 
-  async function iniciar() {
-    try {
-      const configRes = await fetch('/firebase-applet-config.json');
-      const firebaseConfig = await configRes.json();
+    const uid = localStorage.getItem('user');
+    const amount = localStorage.getItem('recharge_amount');
+    const txId = localStorage.getItem('txId');
 
-      const app = initializeApp(firebaseConfig);
-      const db = getFirestore(app, firebaseConfig.firestoreDatabaseId);
-
-      const urlParams = new URLSearchParams(window.location.search);
-      const txId = urlParams.get('txId') || 'PAG_' + Date.now();
-
-      const uid = localStorage.getItem('user');
-      const amount = localStorage.getItem('recharge_amount');
-      const email = localStorage.getItem('email');
-
-      if (!uid || !amount) {
-        document.getElementById('status').innerText = "Erro: Dados de sessão não encontrados.";
+    if (!uid || !amount) {
+        statusEl.innerText = "Sem dados";
         return;
-      }
-
-      document.getElementById('email').innerText = email || '...';
-      document.getElementById('amount').innerText = amount + ' Kz';
-      
-      const userRef = doc(db, "users", uid);
-      const userSnap = await getDoc(userRef);
-      
-      if (userSnap.exists()) {
-        const userData = userSnap.data();
-        document.getElementById('user').innerText = userData.displayName || userData.name || uid;
-      } else {
-        document.getElementById('user').innerText = uid;
-      }
-
-      const payLink = PAYMENT_LINKS[amount];
-      if (payLink) {
-        document.getElementById('loader').style.display = 'none';
-        document.getElementById('status').innerText = "Clique no botão abaixo para pagar:";
-        const linkBtn = document.getElementById('pay-link');
-        linkBtn.href = payLink;
-        linkBtn.style.display = 'block';
-        
-        linkBtn.onclick = () => {
-          document.getElementById('confirm-btn').style.display = 'block';
-          document.getElementById('status').innerText = "Após pagar, clique no botão de confirmação.";
-        };
-
-        document.getElementById('confirm-btn').onclick = () => {
-          confirmarPagamento(uid, amount, txId);
-        };
-      } else {
-        document.getElementById('status').innerText = "Processando pagamento automático...";
-        setTimeout(() => {
-          confirmarPagamento(uid, amount, txId);
-        }, 2000);
-      }
-
-    } catch (err) {
-      console.error("Erro ao iniciar:", err);
-      document.getElementById('status').innerText = "Erro ao conectar com o sistema.";
     }
-  }
 
-  async function confirmarPagamento(uid, amount, txId) {
     try {
-      document.getElementById('status').innerText = "Confirmando com o servidor...";
-      document.getElementById('confirm-btn').disabled = true;
-      document.getElementById('confirm-btn').innerText = "PROCESSANDO...";
+        statusEl.innerText = "Processando pagamento...";
 
-      const response = await fetch('/api/payments/simulate-success', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          userId: uid,
-          amount: Number(amount),
-          transactionId: txId
-        }),
-      });
+        const res = await fetch("/api/add-balance", {
+            method: "POST",
+            headers: {
+                "Content-Type": "application/json"
+            },
+            body: JSON.stringify({ uid, amount, txId })
+        });
 
-      const data = await response.json();
+        const text = await res.text();
 
-      if (response.ok && data.success) {
-        localStorage.removeItem('recharge_amount');
-        document.getElementById('status').innerText = "Pagamento confirmado! Saldo adicionado.";
-        setTimeout(() => {
-          window.location.href = "/dashboard?payment=success";
-        }, 2000);
-      } else {
-        document.getElementById('status').innerText = "Erro: " + (data.error || "Falha ao processar");
-        document.getElementById('confirm-btn').disabled = false;
-        document.getElementById('confirm-btn').innerText = "TENTAR NOVAMENTE";
-      }
-    } catch (error) {
-      document.getElementById('status').innerText = "Erro de conexão.";
-      document.getElementById('confirm-btn').disabled = false;
+        let data;
+        try {
+            data = JSON.parse(text);
+
+            // 🔥 UI BONITA
+            loader.classList.add("hidden");
+            statusEl.innerText = "Sucesso!";
+            subStatusEl.innerText = "";
+
+            successBox.classList.remove("hidden");
+
+            // 🔥 MOSTRAR APENAS O NECESSÁRIO
+            nameEl.innerText = data.name || "Usuário";
+            addedEl.innerText = `+${amount} KZ`;
+
+            localStorage.removeItem("txId");
+            localStorage.removeItem("recharge_amount");
+
+            // 🔥 REDIRECIONAR
+            setTimeout(() => {
+                window.location.href = "https://seguidoresexpress.vercel.app/dashboard";
+            }, 2500);
+
+        } catch (e) {
+            statusEl.innerText = "Erro na resposta";
+            subStatusEl.innerText = "Resposta inválida do servidor";
+        }
+
+    } catch (e) {
+        statusEl.innerText = "Erro!";
+        subStatusEl.innerText = e.message;
     }
-  }
+}
 
-  iniciar();
+processar();
 </script>
 
 </body>
