@@ -3,6 +3,12 @@ import { useNavigate } from 'react-router-dom';
 import { Wallet, ArrowRight, MessageCircle, Zap, Loader2, CreditCard } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 
+const PAYMENT_LINKS: Record<string, string> = {
+  '300': 'https://pay.clickpayon.com/357aa704-8209-4445-90a9-16185409ea6b',
+  '500': 'https://pay.clickpayon.com/edbd1003-32c3-4fc1-8be3-c5fdfecb3864',
+  '1000': 'https://pay.clickpayon.com/42f62615-1c35-4958-a491-c71a20235bde'
+};
+
 const AddBalance = () => {
   const { profile } = useAuth();
   const navigate = useNavigate();
@@ -10,47 +16,25 @@ const AddBalance = () => {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  const handleSimulatedPayment = async () => {
-    if (!profile) return;
+  const handlePayment = () => {
+    if (!amount) return;
     
-    const numAmount = Number(amount);
-    if (isNaN(numAmount) || numAmount < 100) {
-      setError('O valor mínimo para depósito é 100 Kz');
+    const paymentLink = PAYMENT_LINKS[amount];
+
+    if (!paymentLink) {
+      setError('Link de pagamento não encontrado para este valor.');
       return;
     }
 
-    setLoading(true);
     setError(null);
-
-    // Generate a unique transaction ID
-    const transactionId = `tx_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
-
-    // Save recharge amount to localStorage
-    localStorage.setItem('recharge_amount', numAmount.toString());
-
-    // Redirect to the external payment simulation page
-    let paymentUrl = '';
-
-if (numAmount === 300) {
-  paymentUrl = 'https://pay.clickpayon.com/357aa704-8209-4445-90a9-16185409ea6b';
-} else if (numAmount === 500) {
-  paymentUrl = 'https://pay.clickpayon.com/edbd1003-32c3-4fc1-8be3-c5fdfecb3864';
-} else if (numAmount === 1000) {
-  paymentUrl = 'https://pay.clickpayon.com/42f62615-1c35-4958-a491-c71a20235bde';
-} else {
-  setError('Valor inválido para pagamento.');
-  setLoading(false);
-  return;
-}
-
-// Redireciona para o pagamento real
-window.location.href = paymentUrl;
+    // Open the payment link in a new tab
+    window.open(paymentLink, '_blank');
   };
 
   const handleWhatsAppSupport = () => {
     if (!profile) return;
     const message = `Olá! Preciso de ajuda com uma recarga de saldo.%0A%0A*Detalhes:*%0A- Cliente: ${profile.displayName || profile.email}%0A- ID: ${profile.uid}`;
-    const whatsappUrl = `https://wa.me/244957061345?text=${message}`;
+    const whatsappUrl = `https://wa.me/244951061345?text=${message}`;
     window.open(whatsappUrl, '_blank');
   };
 
@@ -101,7 +85,7 @@ window.location.href = paymentUrl;
             </div>
 
             <button
-              onClick={handleSimulatedPayment}
+              onClick={handlePayment}
               disabled={loading || !amount}
               className="w-full py-6 bg-emerald-500 hover:bg-emerald-400 disabled:bg-zinc-800 disabled:text-zinc-500 text-black font-black rounded-3xl transition-all flex items-center justify-center gap-3 shadow-xl shadow-emerald-500/10"
             >

@@ -511,36 +511,9 @@ app.post("/api/orders/create", async (req, res) => {
       return res.status(400).json({ error: "Saldo insuficiente" });
     }
 
-    // 1. Create order on SMM Panel
-    let providerOrderId = `SIM-${Math.floor(Math.random() * 1000000)}`;
+    // 1. Create a simulated provider order ID (No external API call)
+    const providerOrderId = `SIM-${Math.floor(Math.random() * 1000000)}`;
     
-    if (SMM_API_KEY && SMM_API_URL) {
-      try {
-        const params = new URLSearchParams();
-        params.append('key', SMM_API_KEY);
-        params.append('action', 'add');
-        params.append('service', providerServiceId.toString());
-        params.append('link', targetUrl);
-        params.append('quantity', quantity.toString());
-
-        const smmResponse = await axios.post(SMM_API_URL, params, {
-          timeout: 10000
-        });
-
-        const smmData = smmResponse.data;
-        if (smmData.order) {
-          providerOrderId = smmData.order;
-        } else if (smmData.error) {
-          console.error("SMM Panel Error:", smmData.error);
-          return res.status(400).json({ error: `Erro do provedor: ${smmData.error}` });
-        }
-      } catch (err) {
-        console.error("Failed to connect to SMM Panel:", err);
-        // Fallback to simulation if requested or just fail
-        return res.status(500).json({ error: "Falha ao conectar com o provedor de serviços" });
-      }
-    }
-
     // 2. Deduct balance and save order in Firestore
     const batch = firestore.batch();
     

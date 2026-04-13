@@ -24,7 +24,7 @@ const Login = () => {
     } catch (err: any) {
       console.error("Login error:", err);
       if (err.code === 'auth/invalid-credential') {
-        setError('Credenciais inválidas ou erro de configuração do Firebase. Verifique se o seu email e senha estão corretos e se o domínio está autorizado no console do Firebase.');
+        setError('Email ou senha incorretos. Verifique suas credenciais e tente novamente.');
       } else if (err.code === 'auth/user-not-found') {
         setError('Usuário não encontrado. Por favor, crie uma conta.');
       } else if (err.code === 'auth/wrong-password') {
